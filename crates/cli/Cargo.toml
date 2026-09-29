@@ -16,8 +16,13 @@ dct-store = { version = "0.1.0", path = "../store" }
 anyhow.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+serde.workspace = true
+toml = "1"
+rand = "0.9"
+dirs = "6"
 clap = { version = "4", features = ["derive"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 [dev-dependencies]
 clap = { version = "4", features = ["derive"] }
+tempfile = "3"
