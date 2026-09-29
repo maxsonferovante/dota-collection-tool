@@ -54,10 +54,3 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo run -- install --help
 ```
-
-```sh
-cargo fmt --all
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-cargo run -- install --help
-```

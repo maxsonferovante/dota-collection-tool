@@ -44,24 +44,38 @@ async fn post_frame(port: u16, payload: &str) -> String {
     String::from_utf8_lossy(&raw).into_owned()
 }
 
-fn frame(token: &str, kills: u16, game_time: u32) -> String {
+fn envelope(token: &str, inner: &str) -> String {
+    if inner.is_empty() {
+        format!(
+            r#"{{"provider": {{"name": "Dota 2", "appid": 570, "version": 47, "timestamp": 1}},
+            "auth": {{"token": "{token}"}}}}"#
+        )
+    } else {
+        format!(
+            r#"{{"provider": {{"name": "Dota 2", "appid": 570, "version": 47, "timestamp": 1}},
+            {inner},
+            "auth": {{"token": "{token}"}}}}"#
+        )
+    }
+}
+
+fn playing_inner(kills: u16, game_time: u32) -> String {
     format!(
-        r#"{{"provider": {{"name": "Dota 2", "appid": 570, "version": 47, "timestamp": 1}},
-        "map": {{"name": "dota", "matchid": "5", "game_time": {game_time}, "clock_time": {game_time},
+        r#""map": {{"name": "dota", "matchid": "5", "game_time": {game_time}, "clock_time": {game_time},
         "daytime": true, "nightstalker_night": false,
         "game_state": "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS",
         "paused": false, "win_team": "none", "customgamename": ""}},
         "player": {{"steamid": "1", "name": "Rin", "activity": "playing",
-        "kills": {kills}, "deaths": 0, "assists": 0, "team_name": "radiant"}},
-        "auth": {{"token": "{token}"}}}}"#
+        "kills": {kills}, "deaths": 0, "assists": 0, "team_name": "radiant"}}"#
     )
 }
 
+fn frame(token: &str, kills: u16, game_time: u32) -> String {
+    envelope(token, &playing_inner(kills, game_time))
+}
+
 fn heartbeat(token: &str) -> String {
-    format!(
-        r#"{{"provider": {{"name": "Dota 2", "appid": 570, "version": 47, "timestamp": 1}},
-        "auth": {{"token": "{token}"}}}}"#
-    )
+    envelope(token, "")
 }
 
 #[test]
@@ -93,6 +107,33 @@ fn discovery_prefers_libraries_holding_the_manifest() {
     );
 }
 
+#[test]
+fn discovery_follows_libraryfolders_vdf() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let primary = dir.path().join("steam");
+    let extra = dir.path().join("extra-library");
+    std::fs::create_dir_all(primary.join("steamapps")).expect("mkdir");
+    let game = extra
+        .join("steamapps")
+        .join("common")
+        .join("dota 2 beta")
+        .join("game")
+        .join("dota");
+    std::fs::create_dir_all(&game).expect("mkdir");
+    std::fs::write(extra.join("steamapps").join("appmanifest_570.acf"), "").expect("write");
+    let manifest = format!(
+        "\"libraryfolders\"\n{{\n\t\"0\"\n\t{{\n\t\t\"path\"\t\t\"{}\"\n\t}}\n}}\n",
+        extra.display()
+    );
+    std::fs::write(
+        primary.join("steamapps").join("libraryfolders.vdf"),
+        manifest,
+    )
+    .expect("write");
+    let found = dct_cli::steam::find_dota_root_in(std::slice::from_ref(&primary)).expect("found");
+    assert!(found.ends_with("dota 2 beta"));
+}
+
 #[tokio::test]
 async fn full_flow_install_up_burst_logs_down() {
     let dir = tempfile::tempdir().expect("tempdir");
@@ -113,7 +154,8 @@ async fn full_flow_install_up_burst_logs_down() {
     )
     .await;
     assert!(install.status.success());
-    let install_out = String::from_utf8_lossy(&install.stdout);
+    let install_out = String::from_utf8_lossy(&install.stdout).into_owned();
+    assert!(install_out.contains("launch flag"), "{install_out}");
     assert!(install_out.contains("restart"), "{install_out}");
     let cfg = root
         .join("game")
@@ -122,14 +164,60 @@ async fn full_flow_install_up_burst_logs_down() {
         .join("gamestate_integration")
         .join("gamestate_integration_e2e.cfg");
     assert!(cfg.is_file());
+    let cfg_text = std::fs::read_to_string(&cfg).expect("read cfg");
+    for knob in [
+        "\"uri\"",
+        "\"timeout\"",
+        "\"buffer\"",
+        "\"throttle\"",
+        "\"heartbeat\"",
+    ] {
+        assert!(cfg_text.contains(knob), "missing {knob}");
+    }
 
     let shown = run_dct(&db, port, &["token", "--show"]).await;
     assert!(shown.status.success());
-    let token = String::from_utf8_lossy(&shown.stdout).trim().to_owned();
+    let old_token = String::from_utf8_lossy(&shown.stdout).trim().to_owned();
+    assert_eq!(old_token.len(), 64);
+    assert!(cfg_text.contains(&old_token));
+
+    let rotated = run_dct(&db, port, &["token", "--rotate"]).await;
+    assert!(rotated.status.success());
+    let reshown = run_dct(&db, port, &["token", "--show"]).await;
+    let token = String::from_utf8_lossy(&reshown.stdout).trim().to_owned();
     assert_eq!(token.len(), 64);
+    assert_ne!(token, old_token);
+
+    // Force reinstall picks up the rotated token and backs the old file up.
+    let reinstall = run_dct(
+        &db,
+        port,
+        &[
+            "install",
+            "--dota-dir",
+            root.to_str().expect("utf8"),
+            "--name",
+            "e2e",
+            "--force",
+        ],
+    )
+    .await;
+    assert!(reinstall.status.success());
+    assert!(cfg.with_extension("cfg.bak").is_file());
+    let refreshed = std::fs::read_to_string(&cfg).expect("read cfg");
+    assert!(refreshed.contains(&token));
+    assert!(!refreshed.contains(&old_token));
 
     let up = run_dct(&db, port, &["up", "--detach"]).await;
     assert!(up.status.success());
+
+    // The rotated-out token is rejected end to end.
+    let stale = post_frame(port, &frame(&old_token, 9, 1)).await;
+    assert!(stale.starts_with("HTTP/1.1 401"), "{stale}");
+
+    let status = run_dct(&db, port, &["status"]).await;
+    let status_out = String::from_utf8_lossy(&status.stdout).into_owned();
+    assert!(status_out.contains("running"), "{status_out}");
 
     for tick in 1..=10u32 {
         let kills = if tick >= 5 { 1 } else { 0 };
@@ -142,9 +230,10 @@ async fn full_flow_install_up_burst_logs_down() {
 
     let logs = run_dct(&db, port, &["logs", "--match", "5"]).await;
     assert!(logs.status.success());
-    let text = String::from_utf8_lossy(&logs.stdout);
+    let text = String::from_utf8_lossy(&logs.stdout).into_owned();
     assert!(text.contains("kill"), "{text}");
 
+    // Heartbeat posts store no happenings: still exactly one line.
     let json_logs = run_dct(&db, port, &["logs", "--match", "5", "--json"]).await;
     assert!(json_logs.status.success());
     let json_text = String::from_utf8_lossy(&json_logs.stdout).into_owned();
@@ -152,6 +241,16 @@ async fn full_flow_install_up_burst_logs_down() {
     assert_eq!(lines.len(), 1);
     let parsed: serde_json::Value = serde_json::from_str(lines[0]).expect("json line");
     assert_eq!(parsed["kind"], "kill");
+
+    let limited = run_dct(
+        &db,
+        port,
+        &["logs", "--match", "5", "--kind", "kill", "--limit", "5"],
+    )
+    .await;
+    assert!(limited.status.success());
+    let limited_text = String::from_utf8_lossy(&limited.stdout).into_owned();
+    assert!(limited_text.contains("kill"), "{limited_text}");
 
     let mut follow = tokio::process::Command::new(binary())
         .arg("--port")
