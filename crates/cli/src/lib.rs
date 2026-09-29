@@ -5,5 +5,6 @@ pub mod cfg;
 pub mod cli;
 pub mod commands;
 pub mod config;
+pub mod lifecycle;
 pub mod paths;
 pub mod steam;

@@ -3,9 +3,10 @@
 pub mod install;
 pub mod token;
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 
 use crate::cli::{Cli, Command};
+use crate::lifecycle;
 
 /// Run the parsed command.
 pub async fn run(cli: Cli) -> Result<()> {
@@ -18,9 +19,16 @@ pub async fn run(cli: Cli) -> Result<()> {
         Command::Token(args) => {
             token::run(&args, db).await?;
         }
-        Command::Up(_) => bail!("up: not yet implemented (issue #6)"),
-        Command::Down => bail!("down: not yet implemented (issue #6)"),
-        Command::Status => bail!("status: not yet implemented (issue #6)"),
+        Command::Up(args) => {
+            let exe = std::env::current_exe().context("cannot locate this binary for detach")?;
+            lifecycle::up(&args, &exe, port, db).await?;
+        }
+        Command::Down => {
+            lifecycle::down(db).await?;
+        }
+        Command::Status => {
+            lifecycle::status(db, port).await?;
+        }
         Command::Logs(_) => bail!("logs: not yet implemented (issue #7)"),
     }
     Ok(())

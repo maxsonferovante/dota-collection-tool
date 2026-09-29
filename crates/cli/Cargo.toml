@@ -20,6 +20,7 @@ serde.workspace = true
 toml = "1"
 rand = "0.9"
 dirs = "6"
+sysinfo = "0.39"
 clap = { version = "4", features = ["derive"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
