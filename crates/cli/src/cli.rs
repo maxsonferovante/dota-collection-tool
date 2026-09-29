@@ -85,7 +85,7 @@ pub struct UpArgs {
 #[derive(Debug, Parser)]
 pub struct LogsArgs {
     /// Only happenings from this match.
-    #[arg(long)]
+    #[arg(long = "match")]
     pub match_id: Option<String>,
 
     /// Only happenings of this kind.
