@@ -18,7 +18,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use dct_core::{Frame, derive_happenings};
 use dct_store::{HappeningRecord, Store, now_millis};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 
@@ -50,7 +50,7 @@ pub struct Metrics {
 }
 
 /// Point-in-time copy of [`Metrics`].
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct MetricsSnapshot {
     pub received: u64,
     pub stored: u64,
@@ -141,11 +141,21 @@ async fn ingest(State(state): State<Arc<AppState>>, body: Bytes) -> Response {
     }
 }
 
-async fn health() -> Response {
+async fn health(State(state): State<Arc<AppState>>) -> Response {
+    let snapshot = state.metrics.snapshot();
+    let body = serde_json::json!({
+        "status": "ok",
+        "received": snapshot.received,
+        "stored": snapshot.stored,
+        "dropped": snapshot.dropped,
+        "rejected": snapshot.rejected,
+        "invalid": snapshot.invalid,
+    })
+    .to_string();
     (
         StatusCode::OK,
         [(header::CONTENT_TYPE, "application/json")],
-        r#"{"status":"ok"}"#,
+        body,
     )
         .into_response()
 }
@@ -247,4 +257,74 @@ pub async fn run_on(
         .with_graceful_shutdown(shutdown)
         .await
         .map_err(|err| crate::NetError::Shutdown(err.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_check_behaviour() {
+        assert_eq!(authorized(br#"{"auth":{"token":"a"}}"#, "a"), Some(true));
+        assert_eq!(authorized(br#"{"auth":{"token":"b"}}"#, "a"), Some(false));
+        assert_eq!(authorized(br#"{}"#, "a"), Some(false));
+        assert_eq!(authorized(b"{broken", "a"), None);
+    }
+
+    async fn test_state() -> (Arc<AppState>, mpsc::Receiver<QueuedFrame>) {
+        let store = Store::open_in_memory().await.expect("open");
+        let (sender, inbox) = mpsc::channel(4);
+        let state = Arc::new(AppState {
+            store,
+            token: "a".to_owned(),
+            sender,
+            metrics: Metrics::default(),
+            overflow_path: PathBuf::from("overflow.jsonl"),
+        });
+        (state, inbox)
+    }
+
+    const FRAME: &str = r#"{
+        "provider": {"name": "Dota 2", "appid": 570, "version": 47, "timestamp": 1},
+        "map": {"name": "dota", "matchid": "3", "game_time": 5, "clock_time": 5,
+            "daytime": true, "nightstalker_night": false,
+            "game_state": "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS",
+            "paused": false, "win_team": "none", "customgamename": ""},
+        "auth": {"token": "a"}
+    }"#;
+
+    #[tokio::test]
+    async fn writer_counts_stored_and_invalid() {
+        let (state, _inbox) = test_state().await;
+        let mut previous = HashMap::new();
+        store_one(
+            &state,
+            &mut previous,
+            QueuedFrame {
+                raw: FRAME.as_bytes().to_vec(),
+                received_at: 1,
+            },
+        )
+        .await;
+        store_one(
+            &state,
+            &mut previous,
+            QueuedFrame {
+                raw: b"{broken".to_vec(),
+                received_at: 2,
+            },
+        )
+        .await;
+        let snapshot = state.metrics.snapshot();
+        assert_eq!(
+            snapshot,
+            MetricsSnapshot {
+                received: 0,
+                stored: 1,
+                dropped: 0,
+                rejected: 0,
+                invalid: 1,
+            }
+        );
+    }
 }
