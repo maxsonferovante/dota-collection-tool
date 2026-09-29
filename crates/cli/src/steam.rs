@@ -64,8 +64,14 @@ fn libraries_of(root: &Path) -> Vec<PathBuf> {
 
 /// Locate the Dota install root (the `dota 2 beta` directory).
 pub fn find_dota_root() -> Option<PathBuf> {
-    for root in steam_roots() {
-        for library in libraries_of(&root) {
+    find_dota_root_in(&steam_roots())
+}
+
+/// Same as [`find_dota_root`], over explicit roots (the test seam that lets
+/// fake Steam libraries validate discovery on any platform).
+pub fn find_dota_root_in(roots: &[PathBuf]) -> Option<PathBuf> {
+    for root in roots {
+        for library in libraries_of(root) {
             if !manifest_present(&library) {
                 continue;
             }
