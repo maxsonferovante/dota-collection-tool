@@ -42,7 +42,7 @@ pub enum Command {
 }
 
 /// Options for `install`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Clone, Parser)]
 pub struct InstallArgs {
     /// Config name: the file becomes `gamestate_integration_<NAME>.cfg`.
     #[arg(long, default_value = "dct")]
@@ -52,13 +52,17 @@ pub struct InstallArgs {
     #[arg(long)]
     pub dota_dir: Option<PathBuf>,
 
+    /// Use this token instead of the stored one.
+    #[arg(long)]
+    pub token: Option<String>,
+
     /// Overwrite an existing config file (backs it up as `.bak`).
     #[arg(long)]
     pub force: bool,
 }
 
 /// Options for `token`.
-#[derive(Debug, Parser)]
+#[derive(Debug, Clone, Parser)]
 pub struct TokenArgs {
     /// Print the active token instead of generating a new one.
     #[arg(long)]
