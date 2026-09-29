@@ -1,9 +1,10 @@
 //! Command dispatch. Handlers land per issue; unknown tasks stay stubs.
 
 pub mod install;
+pub mod logs;
 pub mod token;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 
 use crate::cli::{Cli, Command};
 use crate::lifecycle;
@@ -29,7 +30,9 @@ pub async fn run(cli: Cli) -> Result<()> {
         Command::Status => {
             lifecycle::status(db, port).await?;
         }
-        Command::Logs(_) => bail!("logs: not yet implemented (issue #7)"),
+        Command::Logs(args) => {
+            logs::run(&args, db).await?;
+        }
     }
     Ok(())
 }
