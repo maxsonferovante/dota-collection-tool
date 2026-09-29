@@ -85,3 +85,12 @@ Um workspace Rust com servidor HTTP local que recebe os POSTs do jogo respondend
 - Derivado do PRD `.scratch/gsi-tool/001-prd.md` (label ready-for-agent) mais o grill de 12 decisões travadas; sem entrevista adicional conforme a skill.
 - Tracker local em `.scratch/` (sem git remoto); labels default com `ready-for-agent` aplicada neste spec.
 - Docs próprios da ferramenta devem manter clean-room e não referenciar implementações comunitárias.
+
+> [!IMPORTANT]
+> **Endurecimento pós code-review (PR #16, issue #8).** O review de dois eixos não apontou violações duras, mas o eixo Spec encontrou 5 gaps — todos corrigidos no próprio PR e cobertos pelo teste e2e:
+>
+> 1. **Rotate invalida o antigo** — o e2e só exercia `token --show`; agora rotaciona, reafirma o novo via `--show` e prova rejeição 401 com o token antigo.
+> 2. **Install com backup** — o e2e só cobria install fresco; agora reinstala com `--force`, afirma o `.bak` e que o arquivo carrega o token novo.
+> 3. **Knobs e heartbeat** — o e2e só checava `200`; agora afirma `uri/timeout/buffer/throttle/heartbeat` no `.cfg` e que o post de heartbeat não gera happening espúrio (segue exatamente 1 linha).
+> 4. **Descoberta de caminho** — o seam `find_dota_root_in` era testado só com diretório genérico; novo teste segue `libraryfolders.vdf` até a biblioteca com o manifesto.
+> 5. **Logs filtram e status saudável** — agora afirma `--kind/--limit` e `status` running no meio do fluxo.
