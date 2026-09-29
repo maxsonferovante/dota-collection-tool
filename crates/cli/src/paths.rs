@@ -18,6 +18,8 @@ pub struct Paths {
     pub overflow: PathBuf,
     /// Detached server PID file.
     pub pid: PathBuf,
+    /// Detached server log file.
+    pub log: PathBuf,
 }
 
 fn data_dir() -> Result<PathBuf> {
@@ -38,6 +40,7 @@ pub fn beside(db: &Path) -> Paths {
         config: stem("config.toml"),
         overflow: stem("overflow.jsonl"),
         pid: stem("server.pid"),
+        log: stem("server.log"),
     }
 }
 
@@ -52,6 +55,7 @@ pub fn resolve(db_override: Option<PathBuf>) -> Result<Paths> {
                 config: dir.join("config.toml"),
                 overflow: dir.join("overflow.jsonl"),
                 pid: dir.join("server.pid"),
+                log: dir.join("server.log"),
             })
         }
     }
