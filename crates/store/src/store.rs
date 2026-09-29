@@ -36,6 +36,8 @@ pub struct HappeningFilter {
     pub match_id: Option<String>,
     pub kind: Option<String>,
     pub limit: usize,
+    /// Only rows newer than this id (powers `--follow`).
+    pub after_id: Option<i64>,
 }
 
 /// One stored happening, most recent last.
@@ -162,49 +164,38 @@ impl Store {
         filter: &HappeningFilter,
     ) -> Result<Vec<StoredHappening>, StoreError> {
         let limit = filter.limit.clamp(1, 10_000) as i64;
-        let rows = match (&filter.match_id, &filter.kind) {
-            (Some(match_id), Some(kind)) => {
-                sqlx::query(
-                    "SELECT id, match_id, tick, kind, actor, detail FROM happenings
-                     WHERE match_id = ? AND kind = ? ORDER BY id ASC LIMIT ?",
-                )
-                .bind(match_id)
-                .bind(kind)
-                .bind(limit)
-                .fetch_all(&self.pool)
-                .await
-            }
-            (Some(match_id), None) => {
-                sqlx::query(
-                    "SELECT id, match_id, tick, kind, actor, detail FROM happenings
-                     WHERE match_id = ? ORDER BY id ASC LIMIT ?",
-                )
-                .bind(match_id)
-                .bind(limit)
-                .fetch_all(&self.pool)
-                .await
-            }
-            (None, Some(kind)) => {
-                sqlx::query(
-                    "SELECT id, match_id, tick, kind, actor, detail FROM happenings
-                     WHERE kind = ? ORDER BY id ASC LIMIT ?",
-                )
-                .bind(kind)
-                .bind(limit)
-                .fetch_all(&self.pool)
-                .await
-            }
-            (None, None) => {
-                sqlx::query(
-                    "SELECT id, match_id, tick, kind, actor, detail FROM happenings
-                     ORDER BY id ASC LIMIT ?",
-                )
-                .bind(limit)
-                .fetch_all(&self.pool)
-                .await
-            }
+        let mut sql =
+            String::from("SELECT id, match_id, tick, kind, actor, detail FROM happenings");
+        let mut conditions = Vec::new();
+        if filter.match_id.is_some() {
+            conditions.push("match_id = ?");
         }
-        .map_err(|err| StoreError::Read(err.to_string()))?;
+        if filter.kind.is_some() {
+            conditions.push("kind = ?");
+        }
+        if filter.after_id.is_some() {
+            conditions.push("id > ?");
+        }
+        if !conditions.is_empty() {
+            sql.push_str(" WHERE ");
+            sql.push_str(&conditions.join(" AND "));
+        }
+        sql.push_str(" ORDER BY id ASC LIMIT ?");
+        let mut query = sqlx::query(&sql);
+        if let Some(match_id) = &filter.match_id {
+            query = query.bind(match_id);
+        }
+        if let Some(kind) = &filter.kind {
+            query = query.bind(kind);
+        }
+        if let Some(after_id) = filter.after_id {
+            query = query.bind(after_id);
+        }
+        query = query.bind(limit);
+        let rows = query
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|err| StoreError::Read(err.to_string()))?;
 
         rows.into_iter()
             .map(|row| {
