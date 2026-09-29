@@ -73,6 +73,8 @@ dct down
 
 ## CLI reference
 
+Field meaning, types and notes: [`docs/08-dicionario-de-dados.md`](docs/08-dicionario-de-dados.md).
+
 ```sh
 # Tokens
 dct token            # generate and print a fresh token
