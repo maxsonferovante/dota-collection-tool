@@ -1,0 +1,13 @@
+[package]
+name = "dct-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+dct-core = { version = "0.1.0", path = "../core" }
+tokio.workspace = true
+tracing.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

@@ -1,0 +1,23 @@
+[package]
+name = "dct-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "dct"
+path = "src/main.rs"
+
+[dependencies]
+dct-core = { version = "0.1.0", path = "../core" }
+dct-net = { version = "0.1.0", path = "../net" }
+dct-store = { version = "0.1.0", path = "../store" }
+anyhow.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+clap = { version = "4", features = ["derive"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[dev-dependencies]
+clap = { version = "4", features = ["derive"] }
