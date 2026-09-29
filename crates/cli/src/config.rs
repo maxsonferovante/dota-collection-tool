@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use rand::TryRngCore;
+use rand::TryRng;
 use serde::{Deserialize, Serialize};
 
 /// On-disk local config.
@@ -20,7 +20,7 @@ struct LocalConfig {
 /// 32 random bytes as 64 lowercase hex chars.
 pub fn generate_token() -> Result<String> {
     let mut bytes = [0u8; 32];
-    rand::rngs::OsRng
+    rand::rngs::SysRng
         .try_fill_bytes(&mut bytes)
         .map_err(|err| anyhow::anyhow!("os entropy unavailable: {err}"))?;
     Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())

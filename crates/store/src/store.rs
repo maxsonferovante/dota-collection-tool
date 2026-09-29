@@ -181,7 +181,9 @@ impl Store {
             sql.push_str(&conditions.join(" AND "));
         }
         sql.push_str(" ORDER BY id ASC LIMIT ?");
-        let mut query = sqlx::query(&sql);
+        // Audited: `sql` only concatenates static fragments above; every
+        // dynamic value travels as a bound parameter below.
+        let mut query = sqlx::query(sqlx::AssertSqlSafe(sql.as_str()));
         if let Some(match_id) = &filter.match_id {
             query = query.bind(match_id);
         }
