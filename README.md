@@ -138,3 +138,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo run -- install --help
 ```
+
+## License
+
+MIT plus the Commons Clause v1.0 (see [`LICENSE`](LICENSE)): you may view,
+modify and redistribute freely, but selling this tool (or a paid service
+based substantially on it) requires the author's written consent.
