@@ -104,6 +104,32 @@ dct export --out ./my-exports --match 123 --kind kill
 dct --db /tmp/collect.db --port 53000 up
 ```
 
+## Release builds (Windows, Linux, macOS)
+
+Cross-compiling uses `zig` as the linker, so no MinGW/MSVC toolchain is
+needed. One-time setup:
+
+```sh
+rustup target add x86_64-pc-windows-gnu x86_64-unknown-linux-gnu
+cargo install cargo-zigbuild   # plus: brew install zig
+```
+
+```sh
+# Windows x86-64 (portable .exe: state lives next to it)
+cargo zigbuild --release --target x86_64-pc-windows-gnu -p dct-cli
+# -> target/x86_64-pc-windows-gnu/release/dct.exe
+
+# Linux x86-64
+cargo zigbuild --release --target x86_64-unknown-linux-gnu -p dct-cli
+# -> target/x86_64-unknown-linux-gnu/release/dct
+
+# macOS native (arm64 on Apple Silicon)
+cargo build --release -p dct-cli
+# -> target/release/dct
+```
+
+(For Intel Macs add `--target x86_64-apple-darwin`, no `zigbuild` needed.)
+
 ## Develop
 
 ```sh
