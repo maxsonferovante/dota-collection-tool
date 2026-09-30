@@ -51,6 +51,29 @@ pub struct StoredHappening {
     pub detail: Value,
 }
 
+/// One raw frame for export: index columns plus the stored payload.
+#[derive(Debug, PartialEq)]
+pub struct ExportedFrame {
+    pub id: i64,
+    pub match_id: String,
+    pub game_time: i64,
+    pub clock_time: i64,
+    pub received_at: i64,
+    pub payload: String,
+}
+
+/// One happening for export, with the detail kept as the stored string.
+#[derive(Debug, PartialEq)]
+pub struct ExportedHappening {
+    pub id: i64,
+    pub match_id: String,
+    pub tick: i64,
+    pub kind: String,
+    pub actor: Option<String>,
+    pub detail: String,
+    pub recorded_at: i64,
+}
+
 /// Async SQLite store.
 #[derive(Clone)]
 pub struct Store {
@@ -210,6 +233,91 @@ impl Store {
                     kind: row.get("kind"),
                     actor: row.get("actor"),
                     detail,
+                })
+            })
+            .collect()
+    }
+
+    /// Read every frame oldest-first for export, optionally scoped to a match.
+    pub async fn export_frames(
+        &self,
+        match_id: Option<&str>,
+    ) -> Result<Vec<ExportedFrame>, StoreError> {
+        let mut sql = String::from(
+            "SELECT id, match_id, game_time, clock_time, received_at, payload FROM frames",
+        );
+        if match_id.is_some() {
+            sql.push_str(" WHERE match_id = ?");
+        }
+        sql.push_str(" ORDER BY id ASC");
+        // Audited: `sql` only concatenates the static fragment above; the
+        // match id travels as a bound parameter below.
+        let mut query = sqlx::query(sqlx::AssertSqlSafe(sql.as_str()));
+        if let Some(match_id) = match_id {
+            query = query.bind(match_id);
+        }
+        let rows = query
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|err| StoreError::Read(err.to_string()))?;
+        rows.into_iter()
+            .map(|row| {
+                Ok(ExportedFrame {
+                    id: row.get("id"),
+                    match_id: row.get("match_id"),
+                    game_time: row.get("game_time"),
+                    clock_time: row.get("clock_time"),
+                    received_at: row.get("received_at"),
+                    payload: row.get("payload"),
+                })
+            })
+            .collect()
+    }
+
+    /// Read every happening oldest-first for export, honoring the filters.
+    pub async fn export_happenings(
+        &self,
+        match_id: Option<&str>,
+        kind: Option<&str>,
+    ) -> Result<Vec<ExportedHappening>, StoreError> {
+        let mut sql = String::from(
+            "SELECT id, match_id, tick, kind, actor, detail, recorded_at FROM happenings",
+        );
+        let mut conditions = Vec::new();
+        if match_id.is_some() {
+            conditions.push("match_id = ?");
+        }
+        if kind.is_some() {
+            conditions.push("kind = ?");
+        }
+        if !conditions.is_empty() {
+            sql.push_str(" WHERE ");
+            sql.push_str(&conditions.join(" AND "));
+        }
+        sql.push_str(" ORDER BY id ASC");
+        // Audited: `sql` only concatenates static fragments above; every
+        // dynamic value travels as a bound parameter below.
+        let mut query = sqlx::query(sqlx::AssertSqlSafe(sql.as_str()));
+        if let Some(match_id) = match_id {
+            query = query.bind(match_id);
+        }
+        if let Some(kind) = kind {
+            query = query.bind(kind);
+        }
+        let rows = query
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|err| StoreError::Read(err.to_string()))?;
+        rows.into_iter()
+            .map(|row| {
+                Ok(ExportedHappening {
+                    id: row.get("id"),
+                    match_id: row.get("match_id"),
+                    tick: row.get("tick"),
+                    kind: row.get("kind"),
+                    actor: row.get("actor"),
+                    detail: row.get("detail"),
+                    recorded_at: row.get("recorded_at"),
                 })
             })
             .collect()

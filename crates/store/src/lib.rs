@@ -8,4 +8,7 @@ pub mod store;
 
 pub use error::StoreError;
 pub use overflow::{ReplayStats, replay, spill};
-pub use store::{HappeningFilter, HappeningRecord, Store, StoredHappening, now_millis};
+pub use store::{
+    ExportedFrame, ExportedHappening, HappeningFilter, HappeningRecord, Store, StoredHappening,
+    now_millis,
+};

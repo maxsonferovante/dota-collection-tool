@@ -1,8 +1,12 @@
 # dota-collection-tool
 
 Local game-state collector: an HTTP sink for the game's JSON POSTs, a manager
-CLI (`install`, `token`, `up`, `down`, `status`, `logs`) and an async SQLite
-store of raw frames plus derived happenings.
+CLI (`install`, `token`, `up`, `down`, `status`, `logs`, `export`) and an
+async SQLite store of raw frames plus derived happenings.
+
+State (`collect.db`, `config.toml`, ...) lives next to the executable by
+default, so a portable install keeps everything in one folder; override
+with `--db` (companions follow the database).
 
 ## Layout
 
@@ -91,6 +95,10 @@ dct down             # stop the detached server
 dct logs --match 123 --kind kill --limit 20
 dct logs --match 123 --json
 dct logs --follow
+
+# Export (frames index, happenings, first/middle/last payloads)
+dct export                        # into ./exports next to the database
+dct export --out ./my-exports --match 123 --kind kill
 
 # Point at another database (companions live beside it):
 dct --db /tmp/collect.db --port 53000 up

@@ -1,5 +1,6 @@
 //! Command dispatch. Handlers land per issue; unknown tasks stay stubs.
 
+pub mod export;
 pub mod install;
 pub mod logs;
 pub mod token;
@@ -32,6 +33,9 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
         Command::Logs(args) => {
             logs::run(&args, db).await?;
+        }
+        Command::Export(args) => {
+            export::run(&args, db).await?;
         }
     }
     Ok(())

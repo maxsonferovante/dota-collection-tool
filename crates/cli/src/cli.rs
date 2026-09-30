@@ -12,7 +12,7 @@ pub struct Cli {
     #[arg(long, default_value_t = 53_000)]
     pub port: u16,
 
-    /// SQLite database path. Defaults next to the local config file.
+    /// SQLite database path. Defaults next to the executable.
     #[arg(long)]
     pub db: Option<PathBuf>,
 
@@ -24,7 +24,7 @@ pub struct Cli {
     pub command: Command,
 }
 
-/// The six manager tasks.
+/// The seven manager tasks.
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Write the game config file into the Dota cfg directory.
@@ -39,6 +39,8 @@ pub enum Command {
     Status,
     /// Query recorded happenings.
     Logs(LogsArgs),
+    /// Dump the frames index, happenings and sample payloads.
+    Export(ExportArgs),
 }
 
 /// Options for `install`.
@@ -103,4 +105,20 @@ pub struct LogsArgs {
     /// Print newline-delimited JSON instead of text.
     #[arg(long)]
     pub json: bool,
+}
+
+/// Options for `export`.
+#[derive(Debug, Parser)]
+pub struct ExportArgs {
+    /// Output directory. Defaults to `exports` next to the database.
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+
+    /// Only export this match.
+    #[arg(long = "match")]
+    pub match_id: Option<String>,
+
+    /// Only export happenings of this kind.
+    #[arg(long)]
+    pub kind: Option<String>,
 }
