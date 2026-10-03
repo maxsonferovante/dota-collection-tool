@@ -124,6 +124,23 @@ State lives next to the app, shared with the `dct` CLI, so both can be
 used interchangeably. After installing, still add
 `-gamestateintegration` to the Steam launch options and restart the game.
 
+### First run on macOS
+
+Binaries downloaded from GitHub Releases arrive without the executable
+bit and under macOS quarantine (Gatekeeper), so double-clicking fails.
+Fix both once per download (Apple Silicon uses the `arm64` files;
+`x86_64` is for Intel Macs, `.exe` for Windows):
+
+```sh
+cd ~/Downloads
+chmod +x dct-gui-macos-arm64 dct-macos-arm64
+xattr -d com.apple.quarantine dct-gui-macos-arm64 dct-macos-arm64
+```
+
+Then run `./dct-gui-macos-arm64` (or double-click it in Finder). If macOS
+still refuses to open it ("cannot verify the developer"), right-click the
+file → Open → Open to approve it once.
+
 ## Release builds (Windows, Linux, macOS)
 
 Cross-compiling uses `zig` as the linker, so no MinGW/MSVC toolchain is
