@@ -49,11 +49,11 @@ impl Message {
             return;
         }
         let color = if self.ok {
-            egui::Color32::DARK_GREEN
+            egui::Color32::from_rgb(0, 110, 0)
         } else {
-            egui::Color32::DARK_RED
+            egui::Color32::from_rgb(170, 0, 0)
         };
-        ui.colored_label(color, &self.text);
+        ui.label(egui::RichText::new(&self.text).strong().color(color));
     }
 }
 
@@ -165,7 +165,24 @@ pub struct App {
 
 impl App {
     pub fn new(ctx: &eframe::CreationContext<'_>, runtime: Arc<tokio::runtime::Runtime>) -> Self {
-        ctx.egui_ctx.set_visuals(egui::Visuals::light());
+        let mut visuals = egui::Visuals::light();
+        visuals.override_text_color = Some(egui::Color32::BLACK);
+        visuals.weak_text_color = Some(egui::Color32::from_gray(0x20));
+        ctx.egui_ctx.set_visuals(visuals);
+        let mut style = (*ctx.egui_ctx.style()).clone();
+        style
+            .text_styles
+            .insert(egui::TextStyle::Heading, egui::FontId::proportional(24.0));
+        style
+            .text_styles
+            .insert(egui::TextStyle::Body, egui::FontId::proportional(16.0));
+        style
+            .text_styles
+            .insert(egui::TextStyle::Button, egui::FontId::proportional(16.0));
+        style
+            .text_styles
+            .insert(egui::TextStyle::Monospace, egui::FontId::monospace(15.0));
+        ctx.egui_ctx.set_style(style);
         let dota_dir = steam::find_dota_root()
             .map(|path| path.display().to_string())
             .unwrap_or_default();
