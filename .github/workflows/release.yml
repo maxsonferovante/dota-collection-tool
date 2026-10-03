@@ -19,9 +19,30 @@ permissions:
   contents: write
 
 jobs:
+  coverage:
+    name: Tests + 90% coverage gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Test with coverage (fails under 90% lines)
+        # dct-gui is excluded: eframe needs display/X11 system libs on
+        # Linux and the window cannot run headless. The GUI is a thin
+        # shell over the tested dct-cli library; its pure helpers
+        # (port parsing, filters) are unit-tested in the crate.
+        run: cargo llvm-cov --workspace --exclude dct-gui --fail-under-lines 90 --summary-only
+
   windows:
     name: Build Windows x86-64
     runs-on: windows-latest
+    needs: coverage
     steps:
       - uses: actions/checkout@v4
         with:
@@ -45,6 +66,7 @@ jobs:
   macos:
     name: Build macOS arm64 + x86-64
     runs-on: macos-latest
+    needs: coverage
     steps:
       - uses: actions/checkout@v4
         with:

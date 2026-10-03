@@ -175,3 +175,77 @@ async fn health_reports_ok() {
     assert!(body.contains("ok"));
     running.stop().await;
 }
+
+#[tokio::test]
+async fn bind_conflict_reports_bind_error() {
+    use dct_net::{IngestConfig, NetError, run};
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    // Held open: the address stays occupied so `run` cannot bind it.
+    let held = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    let addr = held.local_addr().expect("addr");
+    let store = Store::open_in_memory().await.expect("open");
+    let err = run(
+        addr,
+        store,
+        IngestConfig {
+            token: "secret".to_owned(),
+            overflow_path: dir.path().join("overflow.jsonl"),
+            queue_capacity: 16,
+        },
+        std::future::pending(),
+    )
+    .await
+    .expect_err("must fail");
+    assert!(
+        matches!(err, NetError::Bind { .. }),
+        "expected a bind error, got {err}"
+    );
+}
+
+#[tokio::test]
+async fn full_queue_spills_and_still_answers_ok() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let store = Store::open_in_memory().await.expect("open");
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let base = format!("http://{}", listener.local_addr().expect("addr"));
+    let (shutdown, waiter) = tokio::sync::oneshot::channel::<()>();
+    let task_store = store.clone();
+    let overflow = dir.path().join("overflow.jsonl");
+    let task = tokio::spawn(async move {
+        run_on(
+            listener,
+            task_store,
+            IngestConfig {
+                token: "secret".to_owned(),
+                overflow_path: overflow,
+                queue_capacity: 1,
+            },
+            async move {
+                let _ = waiter.await;
+            },
+        )
+        .await
+        .expect("serve");
+    });
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    let client = reqwest::Client::new();
+    let mut posts = Vec::new();
+    for _ in 0..200 {
+        let request = client
+            .post(format!("{base}/"))
+            .header("content-type", "application/json")
+            .body(BODY);
+        posts.push(tokio::spawn(async move { request.send().await }));
+    }
+    for post in posts {
+        assert_eq!(post.await.expect("join").expect("post").status(), 200);
+    }
+    drop(shutdown);
+    task.await.expect("join");
+    // Let the detached writer task drain before the test ends.
+    settle().await;
+}

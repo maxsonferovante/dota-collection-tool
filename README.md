@@ -154,10 +154,14 @@ cargo build --release -p dct-cli
 
 Tagged releases are built by the `Release binaries` workflow
 (`.github/workflows/release.yml`), which runs **only when triggered by
-hand** (Actions tab → Run workflow). It takes the latest `main`, builds
-`dct-gui` + `dct` for Windows x86-64 and macOS (arm64 + Intel), creates
-the tag (`version` input, e.g. `v0.2.0`, or an auto date-based tag) and
-publishes the GitHub Release with the binaries attached.
+hand** (Actions tab → Run workflow). It takes the latest `main`, then:
+1. runs the full test suite with a **90% line-coverage gate**
+   (`cargo llvm-cov --workspace --exclude dct-gui --fail-under-lines 90`;
+   the GUI shell is excluded — it cannot run headless on Linux — but its
+   logic lives in the tested `dct-cli` library),
+2. builds `dct-gui` + `dct` for Windows x86-64 and macOS (arm64 + Intel),
+3. creates the tag (`version` input, e.g. `v0.2.0`, or an auto date-based tag)
+   and publishes the GitHub Release with the binaries attached.
 
 ## Develop
 

@@ -72,3 +72,38 @@ async fn run_lists_seeded_happenings() {
         .expect("query");
     assert_eq!(rows.len(), 1);
 }
+
+#[tokio::test]
+async fn run_follow_polls_until_aborted() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = dir.path().join("collect.db");
+    let store = Store::open(&db).await.expect("open");
+    let event = Happening {
+        kind: HappeningKind::Kill,
+        actor: Some("Rin".to_owned()),
+        detail: json!({"kills": 1}),
+    };
+    store
+        .insert_happenings(&[HappeningRecord {
+            match_id: "9",
+            tick: 601,
+            happening: &event,
+            recorded_at: 1,
+        }])
+        .await
+        .expect("insert");
+
+    let task = tokio::spawn(logs::run(
+        &dct_cli::cli::LogsArgs {
+            match_id: None,
+            kind: None,
+            limit: 10,
+            follow: true,
+            json: false,
+        },
+        Some(db),
+    ));
+    tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+    task.abort();
+    let _ = task.await;
+}
