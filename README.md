@@ -104,6 +104,26 @@ dct export --out ./my-exports --match 123 --kind kill
 dct --db /tmp/collect.db --port 53000 up
 ```
 
+## Desktop app (no command line)
+
+`dct-gui` is the same collector with a window instead of a terminal:
+
+1. **Collector service** — shows Running/Stopped, Start/Stop/Refresh,
+   auto-refresh every 3 s, and the port (default `53000`).
+2. **Dota install folder** — Browse... (native folder picker with no
+   quoting issues), Auto-detect, then Install game config. Pick the
+   `dota 2 beta` folder; spaces in the path are handled.
+3. **Export JSON** — output folder picker (or Default), optional
+   match/kind filters, Export, plus Open folder.
+
+```sh
+cargo run -p dct-gui   # local run
+```
+
+State lives next to the app, shared with the `dct` CLI, so both can be
+used interchangeably. After installing, still add
+`-gamestateintegration` to the Steam launch options and restart the game.
+
 ## Release builds (Windows, Linux, macOS)
 
 Cross-compiling uses `zig` as the linker, so no MinGW/MSVC toolchain is
@@ -129,6 +149,15 @@ cargo build --release -p dct-cli
 ```
 
 (For Intel Macs add `--target x86_64-apple-darwin`, no `zigbuild` needed.)
+
+## Published releases (manual)
+
+Tagged releases are built by the `Release binaries` workflow
+(`.github/workflows/release.yml`), which runs **only when triggered by
+hand** (Actions tab → Run workflow). It takes the latest `main`, builds
+`dct-gui` + `dct` for Windows x86-64 and macOS (arm64 + Intel), creates
+the tag (`version` input, e.g. `v0.2.0`, or an auto date-based tag) and
+publishes the GitHub Release with the binaries attached.
 
 ## Develop
 

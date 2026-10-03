@@ -1,0 +1,104 @@
+# Manual release: builds the GUI + CLI for Windows and macOS from the
+# latest `main`, tags it and publishes a GitHub Release.
+#
+# Trigger: Actions tab -> "Release binaries" -> Run workflow. Optional
+# `version` input (e.g. `v0.2.0`); empty means an auto tag like
+# `v2026.10.03-7` (date + run number). Nothing runs automatically.
+
+name: Release binaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag for this release (e.g. v0.2.0). Empty = auto date-based tag."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Build Windows x86-64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test
+        run: cargo test --workspace
+      - name: Build release binaries
+        run: cargo build --release -p dct-gui -p dct-cli
+      - name: Stage assets
+        run: |
+          mkdir dist
+          copy target\release\dct-gui.exe dist\dct-gui-windows-x86_64.exe
+          copy target\release\dct.exe dist\dct-windows-x86_64.exe
+        shell: cmd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86_64
+          path: dist/
+
+  macos:
+    name: Build macOS arm64 + x86-64
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+      - name: Test
+        run: cargo test --workspace
+      - name: Build release binaries (arm64)
+        run: cargo build --release -p dct-gui -p dct-cli
+      - name: Build release binaries (Intel)
+        run: cargo build --release --target x86_64-apple-darwin -p dct-gui -p dct-cli
+      - name: Stage assets
+        run: |
+          mkdir -p dist
+          cp target/release/dct-gui dist/dct-gui-macos-arm64
+          cp target/release/dct dist/dct-macos-arm64
+          cp target/x86_64-apple-darwin/release/dct-gui dist/dct-gui-macos-x86_64
+          cp target/x86_64-apple-darwin/release/dct dist/dct-macos-x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/
+
+  publish:
+    name: Tag and publish Release
+    runs-on: ubuntu-latest
+    needs: [windows, macos]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            TAG="${{ inputs.version }}"
+          else
+            TAG="v$(date +'%Y.%m.%d')-${{ github.run_number }}"
+          fi
+          echo "Tag: $TAG"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; aborting." >&2
+            exit 1
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
+          gh release create "$TAG" --title "$TAG" --target main \
+            --notes "Dota Collection Tool $TAG — GUI (dct-gui) + CLI (dct) for Windows x86-64 and macOS (arm64 + Intel). State lives next to the app; see README for setup." \
+            dist/*

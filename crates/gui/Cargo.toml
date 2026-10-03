@@ -1,0 +1,20 @@
+[package]
+name = "dct-gui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "dct-gui"
+path = "src/main.rs"
+
+[dependencies]
+dct-cli = { version = "0.1.0", path = "../cli" }
+dct-net = { version = "0.1.0", path = "../net" }
+dct-store = { version = "0.1.0", path = "../store" }
+anyhow.workspace = true
+tokio.workspace = true
+eframe = "0.32"
+egui = "0.32"
+rfd = "0.15"
