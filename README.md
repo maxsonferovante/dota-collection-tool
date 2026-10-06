@@ -39,6 +39,24 @@ Custom locations and overwrite with backup:
 dct install --dota-dir "/path/to/dota 2 beta" --name dct --force
 ```
 
+### Collection profiles
+
+The desktop app offers three GSI collection profiles. **Balanced** is the
+default and is recommended for most users:
+
+| Profile | buffer | throttle | heartbeat | Recommendation |
+| --- | ---: | ---: | ---: | --- |
+| Economical | `0.20` | `0.20` | `30.0` | Lowest local update pressure; use for normal play. |
+| Balanced | `0.10` | `0.10` | `30.0` | General-purpose compromise between freshness and impact. |
+| Low latency | `0.02` | `0.05` | `15.0` | Faster live analysis, with potentially higher local overhead. |
+
+Low latency is not a real-time guarantee. Actual behavior depends on the Dota
+version and operating system, and the profile can affect local processing,
+storage and the game's frame-time. Change the profile in **Connect Dota 2**,
+install the config, then restart Dota. The app's status panel reports whether
+it is waiting for the first payload, collecting, or receiving no recent data,
+along with approximate rate and local drop/error counters.
+
 ### 2. Enable the `-gamestateintegration` launch flag (required)
 
 Since the official March 2022 update, the client only emits game state
