@@ -547,7 +547,7 @@ impl App {
         if let Some(health) = &self.health {
             show_health(ui, health, self.profile);
         }
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.label("Port");
             ui.add(
                 egui::TextEdit::singleline(&mut self.port_text)
