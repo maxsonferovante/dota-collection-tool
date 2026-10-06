@@ -10,11 +10,15 @@ use anyhow::{Context, Result};
 use rand::TryRng;
 use serde::{Deserialize, Serialize};
 
+use crate::cfg::Profile;
+
 /// On-disk local config.
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct LocalConfig {
     #[serde(default)]
     token: Option<String>,
+    #[serde(default)]
+    profile: Option<Profile>,
 }
 
 /// 32 random bytes as 64 lowercase hex chars.
@@ -49,6 +53,18 @@ async fn write_config(path: &Path, config: &LocalConfig) -> Result<()> {
     Ok(())
 }
 
+/// The selected collection profile, defaulting to Balanced for old configs.
+pub async fn active_profile(config_path: &Path) -> Result<Profile> {
+    Ok(read_config(config_path).await?.profile.unwrap_or_default())
+}
+
+/// Persist a collection profile without changing the existing token.
+pub async fn set_profile(config_path: &Path, profile: Profile) -> Result<()> {
+    let mut config = read_config(config_path).await?;
+    config.profile = Some(profile);
+    write_config(config_path, &config).await
+}
+
 /// The active token, if one was generated before.
 pub async fn active_token(config_path: &Path) -> Result<Option<String>> {
     Ok(read_config(config_path).await?.token)
@@ -61,6 +77,7 @@ pub async fn fresh_token(config_path: &Path) -> Result<String> {
         config_path,
         &LocalConfig {
             token: Some(token.clone()),
+            profile: read_config(config_path).await?.profile,
         },
     )
     .await?;

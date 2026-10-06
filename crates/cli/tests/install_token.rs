@@ -45,6 +45,41 @@ fn render_covers_all_blocks_and_escapes() {
 }
 
 #[test]
+fn profiles_have_conservative_settings() {
+    assert_eq!(cfg::Profile::Economical.settings().unwrap().buffer, 0.20);
+    assert_eq!(cfg::Profile::Economical.settings().unwrap().throttle, 0.20);
+    assert_eq!(cfg::Profile::Balanced.settings().unwrap().buffer, 0.10);
+    assert_eq!(cfg::Profile::Balanced.settings().unwrap().throttle, 0.10);
+    assert_eq!(cfg::Profile::LowLatency.settings().unwrap().buffer, 0.02);
+    assert_eq!(cfg::Profile::LowLatency.settings().unwrap().throttle, 0.05);
+    assert!(cfg::Profile::Custom.settings().is_none());
+}
+
+#[tokio::test]
+async fn profile_defaults_and_round_trips_without_losing_token() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config = dir.path().join("config.toml");
+
+    assert_eq!(
+        dct_cli::config::active_profile(&config).await.unwrap(),
+        cfg::Profile::Balanced
+    );
+    let token = dct_cli::config::fresh_token(&config).await.unwrap();
+    dct_cli::config::set_profile(&config, cfg::Profile::LowLatency)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        dct_cli::config::active_profile(&config).await.unwrap(),
+        cfg::Profile::LowLatency
+    );
+    assert_eq!(
+        dct_cli::config::active_token(&config).await.unwrap(),
+        Some(token)
+    );
+}
+
+#[test]
 fn library_paths_parse_old_and_new_manifests() {
     let old = "\"libraryfolders\"\n{\n\t\"0\"\n\t{\n\t\t\"path\"\t\t\"D:\\Steam\"\n\t}\n}\n";
     assert_eq!(steam::library_paths(old), vec![PathBuf::from("D:\\Steam")]);
