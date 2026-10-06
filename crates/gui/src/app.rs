@@ -545,20 +545,7 @@ impl App {
             }
         });
         if let Some(health) = &self.health {
-            let one_line: String = health
-                .lines()
-                .next()
-                .unwrap_or("")
-                .chars()
-                .take(140)
-                .collect();
-            if !one_line.is_empty() {
-                ui.label(
-                    egui::RichText::new(format!("Health · {one_line}"))
-                        .small()
-                        .color(egui::Color32::from_rgb(156, 166, 184)),
-                );
-            }
+            show_health(ui, health, self.profile);
         }
         ui.horizontal(|ui| {
             ui.label("Port");
@@ -717,6 +704,41 @@ impl App {
         });
         self.export_msg.show(ui);
     }
+}
+
+fn show_health(ui: &mut egui::Ui, health: &str, profile: Profile) {
+    let parsed: serde_json::Value = match serde_json::from_str(health) {
+        Ok(value) => value,
+        Err(_) => {
+            ui.label(egui::RichText::new(format!("Health · {health}")).small());
+            return;
+        }
+    };
+    let received = parsed["received"].as_u64().unwrap_or(0);
+    let dropped = parsed["dropped"].as_u64().unwrap_or(0);
+    let invalid = parsed["invalid"].as_u64().unwrap_or(0);
+    let rejected = parsed["rejected"].as_u64().unwrap_or(0);
+    let last = parsed["last_received_at"].as_u64().unwrap_or(0);
+    let now = dct_store::now_millis().max(0) as u64;
+    let stale_after = profile
+        .settings()
+        .map(|s| (s.heartbeat * 2_000.0) as u64)
+        .unwrap_or(60_000);
+    let state = if received == 0 {
+        "Waiting for first payload"
+    } else if now.saturating_sub(last) > stale_after {
+        "No recent data"
+    } else {
+        "Collecting"
+    };
+    let rate = parsed["first_received_at"]
+        .as_u64()
+        .filter(|first| now > *first)
+        .map(|first| received as f64 * 1000.0 / (now - first) as f64);
+    let rate_text = rate
+        .map(|value| format!("{value:.1}/s"))
+        .unwrap_or_else(|| "n/a".to_owned());
+    ui.label(egui::RichText::new(format!("{state} · {rate_text} · last payload {last} · dropped {dropped} · invalid {invalid} · rejected {rejected}" )).small().color(egui::Color32::from_rgb(156, 166, 184)));
 }
 
 impl eframe::App for App {

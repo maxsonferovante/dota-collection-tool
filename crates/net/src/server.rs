@@ -47,6 +47,8 @@ pub struct Metrics {
     dropped: AtomicU64,
     rejected: AtomicU64,
     invalid: AtomicU64,
+    first_received_at: AtomicU64,
+    last_received_at: AtomicU64,
 }
 
 /// Point-in-time copy of [`Metrics`].
@@ -57,6 +59,8 @@ pub struct MetricsSnapshot {
     pub dropped: u64,
     pub rejected: u64,
     pub invalid: u64,
+    pub first_received_at: u64,
+    pub last_received_at: u64,
 }
 
 impl Metrics {
@@ -67,6 +71,8 @@ impl Metrics {
             dropped: self.dropped.load(Ordering::Relaxed),
             rejected: self.rejected.load(Ordering::Relaxed),
             invalid: self.invalid.load(Ordering::Relaxed),
+            first_received_at: self.first_received_at.load(Ordering::Relaxed),
+            last_received_at: self.last_received_at.load(Ordering::Relaxed),
         }
     }
 }
@@ -105,6 +111,15 @@ fn authorized(body: &[u8], expected: &str) -> Option<bool> {
 async fn ingest(State(state): State<Arc<AppState>>, body: Bytes) -> Response {
     let received_at = now_millis();
     state.metrics.received.fetch_add(1, Ordering::Relaxed);
+    state
+        .metrics
+        .first_received_at
+        .compare_exchange(0, received_at as u64, Ordering::Relaxed, Ordering::Relaxed)
+        .ok();
+    state
+        .metrics
+        .last_received_at
+        .store(received_at as u64, Ordering::Relaxed);
     match authorized(&body, &state.token) {
         Some(true) => {}
         Some(false) => {
@@ -150,6 +165,8 @@ async fn health(State(state): State<Arc<AppState>>) -> Response {
         "dropped": snapshot.dropped,
         "rejected": snapshot.rejected,
         "invalid": snapshot.invalid,
+        "first_received_at": snapshot.first_received_at,
+        "last_received_at": snapshot.last_received_at,
     })
     .to_string();
     (
@@ -324,6 +341,8 @@ mod tests {
                 dropped: 0,
                 rejected: 0,
                 invalid: 1,
+                first_received_at: 0,
+                last_received_at: 0,
             }
         );
     }
