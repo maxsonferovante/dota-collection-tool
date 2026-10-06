@@ -13,6 +13,17 @@ use crate::steam;
 /// Run `install`: returns the written config path.
 pub async fn run(args: &InstallArgs, port: u16, db_override: Option<PathBuf>) -> Result<PathBuf> {
     let paths = paths::resolve(db_override)?;
+    let profile = config::active_profile(&paths.config).await?;
+    run_with_profile(args, port, paths, profile).await
+}
+
+/// Install using an explicit profile without changing persisted preferences.
+pub async fn run_with_profile(
+    args: &InstallArgs,
+    port: u16,
+    paths: paths::Paths,
+    profile: cfg::Profile,
+) -> Result<PathBuf> {
     let token = match &args.token {
         Some(token) => token.clone(),
         None => config::ensure_token(&paths.config).await?,
@@ -24,7 +35,6 @@ pub async fn run(args: &InstallArgs, port: u16, db_override: Option<PathBuf>) ->
     };
     let dir = steam::integration_dir(&root);
     let uri = format!("http://127.0.0.1:{port}/");
-    let profile = config::active_profile(&paths.config).await?;
     let content = cfg::render_profile(&args.name, &uri, &token, profile);
     let written = cfg::install(&dir, &args.name, &content, args.force).await?;
     println!("wrote {}", written.display());

@@ -49,6 +49,26 @@ impl Profile {
             Self::Custom => None,
         }
     }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Economical => "Economical",
+            Self::Balanced => "Balanced",
+            Self::LowLatency => "Low latency",
+            Self::Custom => "Custom",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::Economical => "Fewer updates and lower local overhead; best for normal play.",
+            Self::Balanced => "A practical compromise between freshness and game impact.",
+            Self::LowLatency => {
+                "Shorter batching delay for live analysis; may increase local overhead."
+            }
+            Self::Custom => "Existing values do not match a built-in profile.",
+        }
+    }
 }
 
 /// Config names may only carry these chars (the file name embeds the name).
