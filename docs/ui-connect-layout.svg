@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
+  <title id="title">Dota Collection Tool horizontal dashboard layout</title>
+  <desc id="desc">Dark dashboard with HTTP server, Connect Dota 2, and Export panels arranged side by side.</desc>
+  <rect width="1200" height="430" rx="18" fill="#121722"/>
+  <text x="34" y="42" fill="#eef3fb" font-family="system-ui,sans-serif" font-size="24" font-weight="600">Dota Collection Tool</text>
+  <text x="34" y="65" fill="#aab5c5" font-family="system-ui,sans-serif" font-size="13">Game State Integration · local dashboard</text>
+  <text x="1095" y="45" fill="#35b779" font-family="system-ui,sans-serif" font-size="13" font-weight="600">● READY</text>
+  <g font-family="system-ui,sans-serif">
+    <rect x="34" y="92" width="350" height="280" rx="14" fill="#1b2230" stroke="#344155"/>
+    <rect x="425" y="92" width="350" height="280" rx="14" fill="#1b2230" stroke="#344155"/>
+    <rect x="816" y="92" width="350" height="280" rx="14" fill="#1b2230" stroke="#344155"/>
+    <text x="56" y="124" fill="#eef3fb" font-size="17" font-weight="600">Servidor HTTP</text>
+    <text x="56" y="146" fill="#aab5c5" font-size="12">Controle o coletor e acompanhe a saúde.</text>
+    <rect x="56" y="164" width="306" height="58" rx="9" fill="#242d3d"/>
+    <text x="70" y="188" fill="#eef3fb" font-size="14" font-weight="600">Waiting for first payload</text>
+    <text x="70" y="207" fill="#aab5c5" font-size="12">0.0/s · no recent data</text>
+    <text x="56" y="248" fill="#aab5c5" font-size="12">Porta</text><rect x="105" y="232" width="120" height="30" rx="6" fill="#242d3d"/><text x="118" y="252" fill="#eef3fb" font-size="12">53000</text>
+    <rect x="56" y="280" width="110" height="32" rx="7" fill="#4f8cff"/><text x="70" y="301" fill="#fff" font-size="12" font-weight="600">Start collector</text>
+    <rect x="174" y="280" width="82" height="32" rx="7" fill="#242d3d"/><text x="188" y="301" fill="#eef3fb" font-size="12">Refresh</text>
+    <text x="56" y="345" fill="#aab5c5" font-size="11">Auto-refresh: 3s · Local only</text>
+    <text x="447" y="124" fill="#eef3fb" font-size="17" font-weight="600">Conectar Dota 2</text>
+    <text x="447" y="146" fill="#aab5c5" font-size="12">Instale o GSI e reinicie o jogo.</text>
+    <rect x="447" y="164" width="306" height="68" rx="9" fill="#263b63" stroke="#4f8cff"/>
+    <text x="461" y="188" fill="#eef3fb" font-size="14" font-weight="600">⚡ Balanceada · recomendada</text>
+    <text x="461" y="208" fill="#aab5c5" font-size="11">Equilíbrio entre atualização e impacto local</text>
+    <text x="461" y="224" fill="#aab5c5" font-size="11">buffer 0.10 · throttle 0.10 · heartbeat 30s</text>
+    <text x="447" y="258" fill="#aab5c5" font-size="12">Dota</text><rect x="495" y="242" width="258" height="30" rx="6" fill="#242d3d"/><text x="507" y="262" fill="#eef3fb" font-size="11">.../dota 2 beta</text>
+    <rect x="447" y="290" width="115" height="32" rx="7" fill="#4f8cff"/><text x="461" y="311" fill="#fff" font-size="12" font-weight="600">Install config</text>
+    <rect x="570" y="290" width="75" height="32" rx="7" fill="#242d3d"/><text x="584" y="311" fill="#eef3fb" font-size="12">Browse</text>
+    <text x="447" y="345" fill="#aab5c5" font-size="11">Backup .bak ativo · -gamestateintegration</text>
+    <text x="838" y="124" fill="#eef3fb" font-size="17" font-weight="600">Exportar dados</text>
+    <text x="838" y="146" fill="#aab5c5" font-size="12">Salve frames e happenings em JSON.</text>
+    <text x="838" y="184" fill="#aab5c5" font-size="12">Pasta</text><rect x="888" y="168" width="258" height="30" rx="6" fill="#242d3d"/><text x="900" y="188" fill="#eef3fb" font-size="11">./exports</text>
+    <text x="838" y="224" fill="#aab5c5" font-size="12">Match</text><rect x="888" y="208" width="258" height="30" rx="6" fill="#242d3d"/><text x="900" y="228" fill="#aab5c5" font-size="11">opcional</text>
+    <rect x="838" y="256" width="105" height="32" rx="7" fill="#4f8cff"/><text x="852" y="277" fill="#fff" font-size="12" font-weight="600">Export JSON</text>
+    <rect x="951" y="256" width="100" height="32" rx="7" fill="#242d3d"/><text x="965" y="277" fill="#eef3fb" font-size="12">Open folder</text>
+    <rect x="838" y="304" width="306" height="42" rx="9" fill="#242d3d"/><text x="852" y="324" fill="#eef3fb" font-size="13" font-weight="600">Pronto para exportar</text><text x="852" y="339" fill="#aab5c5" font-size="11">Frames + happenings</text>
+  </g>
+</svg>

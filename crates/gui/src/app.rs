@@ -773,17 +773,25 @@ impl eframe::App for App {
                 );
                 ui.add_space(14.0);
 
-                egui::Frame::group(ui.style())
-                    .inner_margin(egui::Margin::same(16))
-                    .show(ui, |ui| self.status_panel(ui));
-                ui.add_space(10.0);
-                egui::Frame::group(ui.style())
-                    .inner_margin(egui::Margin::same(16))
-                    .show(ui, |ui| self.install_panel(ui));
-                ui.add_space(10.0);
-                egui::Frame::group(ui.style())
-                    .inner_margin(egui::Margin::same(16))
-                    .show(ui, |ui| self.export_panel(ui));
+                let panel =
+                    |ui: &mut egui::Ui, render: fn(&mut App, &mut egui::Ui), app: &mut App| {
+                        egui::Frame::group(ui.style())
+                            .inner_margin(egui::Margin::same(16))
+                            .show(ui, |ui| render(app, ui));
+                    };
+                if ui.available_width() >= 900.0 {
+                    ui.columns(3, |columns| {
+                        panel(&mut columns[0], App::status_panel, self);
+                        panel(&mut columns[1], App::install_panel, self);
+                        panel(&mut columns[2], App::export_panel, self);
+                    });
+                } else {
+                    panel(ui, App::status_panel, self);
+                    ui.add_space(10.0);
+                    panel(ui, App::install_panel, self);
+                    ui.add_space(10.0);
+                    panel(ui, App::export_panel, self);
+                }
                 ui.add_space(8.0);
                 ui.collapsing("Details", |ui| {
                     ui.label(format!("Database: {}", self.db_location));
