@@ -476,21 +476,20 @@ impl App {
         self.runtime.spawn(async move {
             let outcome = match paths::resolve(None)
                 .map_err(|err| anyhow::anyhow!("cannot resolve config path: {err:#}"))
-                .and_then(|resolved| {
-                    let profile = profile;
-                    Ok((resolved.config, profile))
-                }) {
-                Ok((config_path, profile)) => {
-                    match config::set_profile(&config_path, profile).await {
-                        Ok(()) => match install::run(&args, port, None).await {
-                            Ok(written) => Ok(format!(
+            {
+                Ok(resolved) => {
+                    match install::run_with_profile(&args, port, resolved.clone(), profile).await {
+                        Ok(written) => match config::set_profile(&resolved.config, profile).await {
+                            Ok(()) => Ok(format!(
                                 "{} profile installed to {}",
                                 profile.label(),
                                 written.display()
                             )),
-                            Err(err) => Err(format!("install failed: {err:#}")),
+                            Err(err) => Err(format!(
+                                "config installed but profile could not be saved: {err:#}"
+                            )),
                         },
-                        Err(err) => Err(format!("cannot save profile: {err:#}")),
+                        Err(err) => Err(format!("install failed: {err:#}")),
                     }
                 }
                 Err(err) => Err(format!("cannot resolve config path: {err:#}")),
