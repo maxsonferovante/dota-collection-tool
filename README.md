@@ -15,6 +15,11 @@ with `--db` (companions follow the database).
 - `crates/store` — async SQLite persistence
 - `crates/cli` — manager CLI plus embedded server (`dct` binary)
 
+The GSI processing and storage contract is documented in
+[`docs/09-gsi-processamento-e-persistencia.md`](docs/09-gsi-processamento-e-persistencia.md).
+Each accepted frame stores the original JSON, the normalized Rust model and
+the detected client mode (`playing`, `spectating`, `post_game` or `unknown`).
+
 ## Setup with the game
 
 Three things must line up: the config file, the launch flag, and the server.
@@ -186,6 +191,7 @@ hand** (Actions tab → Run workflow). It takes the latest `main`, then:
 cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+cargo llvm-cov --workspace --exclude dct-gui --fail-under-lines 90
 cargo run -- install --help
 ```
 

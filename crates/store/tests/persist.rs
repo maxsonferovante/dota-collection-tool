@@ -25,6 +25,10 @@ async fn frames_and_happenings_roundtrip() {
         .insert_frame(&first, PLAYING.as_bytes(), at)
         .await
         .expect("insert");
+    let exported = store.export_frames(Some("42")).await.expect("export");
+    assert_eq!(exported.len(), 1);
+    assert_eq!(exported[0].payload_kind, "playing");
+    assert!(exported[0].normalized_payload.contains("provider"));
 
     let mut second_value = serde_json::from_str::<serde_json::Value>(PLAYING).expect("json");
     second_value["player"]["kills"] = json!(2);

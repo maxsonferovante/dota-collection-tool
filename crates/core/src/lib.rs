@@ -5,15 +5,18 @@
 //! and no valid input panics.
 
 pub mod abilities;
+pub mod annotation;
 pub mod buildings;
 pub mod couriers;
 pub mod draft;
 pub mod error;
 pub mod events;
 pub mod frame;
+pub mod gamestate;
 pub mod happening;
 pub mod hero;
 pub mod items;
+pub mod json;
 pub mod keys;
 pub mod league;
 pub mod map;
@@ -27,5 +30,7 @@ pub mod wearables;
 
 pub use error::CoreError;
 pub use frame::Frame;
+pub use gamestate::{GameState, PayloadProcessor, ProcessedGameState, deduplicate_events};
 pub use happening::{Happening, HappeningKind, derive_happenings};
+pub use json::{PayloadKind, RawGameState, classify, parse_payload};
 pub use keys::{AbilitySlot, ItemSlot, PlayerSlot, Side};

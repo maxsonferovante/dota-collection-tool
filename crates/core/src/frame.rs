@@ -1,6 +1,8 @@
 //! One accepted game POST: the full frame plus its delta envelope.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
 use serde_json::Value;
 
 use crate::abilities::GameAbilities;
@@ -64,6 +66,9 @@ pub struct Frame {
     /// Root fields that are new since the last report.
     #[serde(default)]
     pub added: Option<Value>,
+    /// Root-level fields introduced by newer GSI versions.
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
 }
 
 impl Frame {
