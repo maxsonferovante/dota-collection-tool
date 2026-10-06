@@ -6,6 +6,50 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
+use serde::{Deserialize, Serialize};
+
+/// User-facing GSI collection profiles.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Profile {
+    Economical,
+    #[default]
+    Balanced,
+    LowLatency,
+    Custom,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ProfileSettings {
+    pub buffer: f32,
+    pub throttle: f32,
+    pub heartbeat: f32,
+}
+
+impl Profile {
+    pub const SELECTABLE: [Self; 3] = [Self::Economical, Self::Balanced, Self::LowLatency];
+
+    pub fn settings(self) -> Option<ProfileSettings> {
+        match self {
+            Self::Economical => Some(ProfileSettings {
+                buffer: 0.20,
+                throttle: 0.20,
+                heartbeat: 30.0,
+            }),
+            Self::Balanced => Some(ProfileSettings {
+                buffer: 0.10,
+                throttle: 0.10,
+                heartbeat: 30.0,
+            }),
+            Self::LowLatency => Some(ProfileSettings {
+                buffer: 0.02,
+                throttle: 0.05,
+                heartbeat: 15.0,
+            }),
+            Self::Custom => None,
+        }
+    }
+}
 
 /// Config names may only carry these chars (the file name embeds the name).
 pub fn valid_name(name: &str) -> bool {
