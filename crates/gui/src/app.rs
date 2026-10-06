@@ -608,37 +608,41 @@ impl App {
                 .small(),
             );
         }
-        ui.horizontal(|ui| {
+        ui.vertical(|ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut self.dota_dir)
-                    .desired_width(320.0)
+                    .desired_width(ui.available_width())
                     .hint_text("E:\\...\\dota 2 beta"),
             );
-            if ui.button("Browse...").clicked() {
-                if let Some(folder) = rfd::FileDialog::new()
-                    .set_title("Select the \"dota 2 beta\" folder")
-                    .pick_folder()
-                {
-                    self.dota_dir = folder.display().to_string();
-                }
-            }
-            if ui.button("Auto-detect").clicked() {
-                match steam::find_dota_root() {
-                    Some(root) => {
-                        self.dota_dir = root.display().to_string();
-                        self.install_msg
-                            .set(format!("Detected {}", self.dota_dir), true);
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("Browse...").clicked() {
+                    if let Some(folder) = rfd::FileDialog::new()
+                        .set_title("Select the \"dota 2 beta\" folder")
+                        .pick_folder()
+                    {
+                        self.dota_dir = folder.display().to_string();
                     }
-                    None => self.install_msg.set(
-                        String::from("Dota not found automatically; pick the folder manually."),
-                        false,
-                    ),
                 }
-            }
+                if ui.button("Auto-detect").clicked() {
+                    match steam::find_dota_root() {
+                        Some(root) => {
+                            self.dota_dir = root.display().to_string();
+                            self.install_msg
+                                .set(format!("Detected {}", self.dota_dir), true);
+                        }
+                        None => self.install_msg.set(
+                            String::from("Dota not found automatically; pick the folder manually."),
+                            false,
+                        ),
+                    }
+                }
+            });
         });
-        ui.horizontal(|ui| {
-            ui.label("Config name:");
-            ui.add(egui::TextEdit::singleline(&mut self.config_name).desired_width(90.0));
+        ui.vertical(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Config name:");
+                ui.add(egui::TextEdit::singleline(&mut self.config_name).desired_width(90.0));
+            });
             ui.checkbox(&mut self.overwrite, "Overwrite existing (backup as .bak)");
             let install = ui.add_enabled(!self.install_busy(), egui::Button::new("Install config"));
             if install.clicked() {
@@ -655,52 +659,60 @@ impl App {
     fn export_panel(&mut self, ui: &mut egui::Ui) {
         ui.heading("Export your data");
         ui.label("Save raw frames and derived happenings as JSON files.");
-        ui.horizontal(|ui| {
+        ui.vertical(|ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut self.export_dir)
-                    .desired_width(320.0)
+                    .desired_width(ui.available_width())
                     .hint_text("Output folder"),
             );
-            if ui.button("Browse...").clicked() {
-                if let Some(folder) = rfd::FileDialog::new()
-                    .set_title("Choose where to save the export")
-                    .pick_folder()
-                {
-                    self.export_dir = folder.display().to_string();
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("Browse...").clicked() {
+                    if let Some(folder) = rfd::FileDialog::new()
+                        .set_title("Choose where to save the export")
+                        .pick_folder()
+                    {
+                        self.export_dir = folder.display().to_string();
+                    }
                 }
-            }
-            if ui.button("Default").clicked() {
-                self.export_dir = default_export_dir();
-            }
+                if ui.button("Default").clicked() {
+                    self.export_dir = default_export_dir();
+                }
+            });
         });
-        ui.horizontal(|ui| {
-            ui.label("Match:");
-            ui.add(
-                egui::TextEdit::singleline(&mut self.export_match)
-                    .desired_width(110.0)
-                    .hint_text("optional"),
-            );
-            ui.label("Kind:");
-            ui.add(
-                egui::TextEdit::singleline(&mut self.export_kind)
-                    .desired_width(110.0)
-                    .hint_text("e.g. kill"),
-            );
-            let run = ui.add_enabled(!self.export_busy(), egui::Button::new("Export data"));
-            if run.clicked() {
-                self.run_export();
-            }
-            if self.export_busy() {
-                ui.spinner();
-            }
-            if ui.button("Open folder").clicked() {
-                let target = if self.export_dir.trim().is_empty() {
-                    default_export_dir()
-                } else {
-                    self.export_dir.trim().to_owned()
-                };
-                open_folder(&target);
-            }
+        ui.vertical(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Match:");
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.export_match)
+                        .desired_width(110.0)
+                        .hint_text("optional"),
+                );
+            });
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Kind:");
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.export_kind)
+                        .desired_width(110.0)
+                        .hint_text("e.g. kill"),
+                );
+            });
+            ui.horizontal_wrapped(|ui| {
+                let run = ui.add_enabled(!self.export_busy(), egui::Button::new("Export data"));
+                if run.clicked() {
+                    self.run_export();
+                }
+                if self.export_busy() {
+                    ui.spinner();
+                }
+                if ui.button("Open folder").clicked() {
+                    let target = if self.export_dir.trim().is_empty() {
+                        default_export_dir()
+                    } else {
+                        self.export_dir.trim().to_owned()
+                    };
+                    open_folder(&target);
+                }
+            });
         });
         self.export_msg.show(ui);
     }
