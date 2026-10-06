@@ -775,11 +775,20 @@ impl eframe::App for App {
 
                 let panel =
                     |ui: &mut egui::Ui, render: fn(&mut App, &mut egui::Ui), app: &mut App| {
-                        egui::Frame::group(ui.style())
-                            .inner_margin(egui::Margin::same(16))
-                            .show(ui, |ui| render(app, ui));
+                        egui::Frame {
+                            fill: egui::Color32::from_rgb(27, 34, 48),
+                            stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(52, 65, 85)),
+                            corner_radius: egui::CornerRadius::same(12),
+                            inner_margin: egui::Margin::same(15),
+                            ..egui::Frame::NONE
+                        }
+                        .show(ui, |ui| {
+                            ui.set_min_height(280.0);
+                            render(app, ui);
+                        });
                     };
                 if ui.available_width() >= 900.0 {
+                    ui.spacing_mut().item_spacing.x = 12.0;
                     ui.columns(3, |columns| {
                         panel(&mut columns[0], App::status_panel, self);
                         panel(&mut columns[1], App::install_panel, self);
