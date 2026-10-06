@@ -50,7 +50,7 @@ impl Message {
             return;
         }
         let (color, icon) = if self.ok {
-            (egui::Color32::from_rgb(20, 120, 65), "✓")
+            (egui::Color32::from_rgb(53, 183, 121), "✓")
         } else {
             (egui::Color32::from_rgb(180, 55, 45), "!")
         };
@@ -179,30 +179,30 @@ impl App {
         let mut visuals = egui::Visuals::dark();
         visuals.override_text_color = Some(egui::Color32::from_rgb(232, 236, 245));
         visuals.weak_text_color = Some(egui::Color32::from_rgb(156, 166, 184));
-        visuals.window_fill = egui::Color32::from_rgb(24, 29, 42);
+        visuals.window_fill = egui::Color32::from_rgb(18, 23, 34);
         visuals.panel_fill = egui::Color32::from_rgb(18, 23, 34);
         visuals.extreme_bg_color = egui::Color32::from_rgb(12, 16, 25);
         visuals.faint_bg_color = egui::Color32::from_rgb(31, 38, 54);
         visuals.code_bg_color = egui::Color32::from_rgb(12, 16, 25);
         visuals.selection.bg_fill = egui::Color32::from_rgb(48, 92, 150);
         visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(28, 35, 50);
-        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(35, 44, 62);
+        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(36, 45, 61);
         visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(48, 67, 94);
-        visuals.widgets.active.bg_fill = egui::Color32::from_rgb(42, 105, 145);
-        visuals.widgets.open.bg_fill = egui::Color32::from_rgb(42, 105, 145);
+        visuals.widgets.active.bg_fill = egui::Color32::from_rgb(79, 140, 255);
+        visuals.widgets.open.bg_fill = egui::Color32::from_rgb(79, 140, 255);
         ctx.egui_ctx.set_visuals(visuals);
         let mut style = (*ctx.egui_ctx.style()).clone();
-        style.spacing.item_spacing = egui::vec2(10.0, 9.0);
+        style.spacing.item_spacing = egui::vec2(8.0, 7.0);
         style.spacing.button_padding = egui::vec2(12.0, 7.0);
         style
             .text_styles
             .insert(egui::TextStyle::Heading, egui::FontId::proportional(24.0));
         style
             .text_styles
-            .insert(egui::TextStyle::Body, egui::FontId::proportional(16.0));
+            .insert(egui::TextStyle::Body, egui::FontId::proportional(13.0));
         style
             .text_styles
-            .insert(egui::TextStyle::Button, egui::FontId::proportional(16.0));
+            .insert(egui::TextStyle::Button, egui::FontId::proportional(13.0));
         style
             .text_styles
             .insert(egui::TextStyle::Monospace, egui::FontId::monospace(15.0));
@@ -527,8 +527,8 @@ impl App {
     }
 
     fn status_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Collector service");
-        ui.label("Receive live game-state updates from Dota 2.");
+        ui.heading("Servidor HTTP");
+        ui.label("Controle o coletor e acompanhe a saúde.");
         ui.horizontal(|ui| {
             let (dot, label) = if self.server.is_some() || self.running {
                 (egui::Color32::DARK_GREEN, "Running")
@@ -548,7 +548,7 @@ impl App {
             show_health(ui, health, self.profile);
         }
         ui.horizontal_wrapped(|ui| {
-            ui.label("Port");
+            ui.label("Porta");
             ui.add(
                 egui::TextEdit::singleline(&mut self.port_text)
                     .desired_width(70.0)
@@ -568,7 +568,7 @@ impl App {
             if stop.clicked() {
                 self.stop_server();
             }
-            if ui.button("Refresh status").clicked() {
+            if ui.button("Refresh").clicked() {
                 self.refresh_status();
             }
         });
@@ -584,8 +584,8 @@ impl App {
     }
 
     fn install_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Connect Dota 2");
-        ui.label("Install the Game State Integration config into your Dota 2 folder.");
+        ui.heading("Conectar Dota 2");
+        ui.label("Instale o GSI e reinicie o jogo.");
         ui.label("Collection profile");
         for profile in Profile::SELECTABLE {
             ui.radio_value(&mut self.profile, profile, profile.label());
@@ -657,8 +657,8 @@ impl App {
     }
 
     fn export_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Export your data");
-        ui.label("Save raw frames and derived happenings as JSON files.");
+        ui.heading("Exportar dados");
+        ui.label("Salve frames e happenings em JSON.");
         ui.vertical(|ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut self.export_dir)
@@ -697,7 +697,7 @@ impl App {
                 );
             });
             ui.horizontal_wrapped(|ui| {
-                let run = ui.add_enabled(!self.export_busy(), egui::Button::new("Export data"));
+                let run = ui.add_enabled(!self.export_busy(), egui::Button::new("Export JSON"));
                 if run.clicked() {
                     self.run_export();
                 }
@@ -768,10 +768,10 @@ impl eframe::App for App {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
-                    ui.heading(egui::RichText::new("Dota Collection Tool").size(28.0));
+                    ui.heading(egui::RichText::new("Dota Collection Tool").size(24.0));
                     ui.add_space(8.0);
                     let (color, label) = if self.server.is_some() || self.running {
-                        (egui::Color32::from_rgb(20, 120, 65), "COLLECTING")
+                        (egui::Color32::from_rgb(53, 183, 121), "COLLECTING")
                     } else {
                         (egui::Color32::from_gray(110), "READY")
                     };
