@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 
+use dct_cli::cfg::Profile;
 use dct_cli::cli::{ExportArgs, InstallArgs};
 use dct_cli::commands::{export, install};
 use dct_cli::{config, lifecycle, paths, steam};
@@ -151,6 +152,7 @@ pub struct App {
     port_text: String,
     dota_dir: String,
     config_name: String,
+    profile: Profile,
     overwrite: bool,
     export_dir: String,
     export_match: String,
@@ -211,11 +213,19 @@ impl App {
         let db_location = paths::resolve(None)
             .map(|resolved| resolved.db.display().to_string())
             .unwrap_or_else(|_| String::from("unknown"));
+        let profile = paths::resolve(None)
+            .map(|resolved| {
+                runtime
+                    .block_on(config::active_profile(&resolved.config))
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default();
         let mut app = Self {
             runtime,
             port_text: DEFAULT_PORT.to_owned(),
             dota_dir,
             config_name: String::from("dct"),
+            profile,
             overwrite: true,
             export_dir: default_export_dir(),
             export_match: String::new(),
@@ -460,12 +470,30 @@ impl App {
         };
         let (tx, rx) = mpsc::channel();
         self.install_rx = Some(rx);
+        let profile = self.profile;
         self.install_msg
             .set(String::from("Writing game config..."), true);
         self.runtime.spawn(async move {
-            let outcome = match install::run(&args, port, None).await {
-                Ok(written) => Ok(format!("Game config written to {}", written.display())),
-                Err(err) => Err(format!("install failed: {err:#}")),
+            let outcome = match paths::resolve(None)
+                .map_err(|err| anyhow::anyhow!("cannot resolve config path: {err:#}"))
+                .and_then(|resolved| {
+                    let profile = profile;
+                    Ok((resolved.config, profile))
+                }) {
+                Ok((config_path, profile)) => {
+                    match config::set_profile(&config_path, profile).await {
+                        Ok(()) => match install::run(&args, port, None).await {
+                            Ok(written) => Ok(format!(
+                                "{} profile installed to {}",
+                                profile.label(),
+                                written.display()
+                            )),
+                            Err(err) => Err(format!("install failed: {err:#}")),
+                        },
+                        Err(err) => Err(format!("cannot save profile: {err:#}")),
+                    }
+                }
+                Err(err) => Err(format!("cannot resolve config path: {err:#}")),
             };
             let _ = tx.send(outcome);
         });
@@ -572,6 +600,28 @@ impl App {
     fn install_panel(&mut self, ui: &mut egui::Ui) {
         ui.heading("Connect Dota 2");
         ui.label("Install the Game State Integration config into your Dota 2 folder.");
+        ui.label("Collection profile");
+        for profile in Profile::SELECTABLE {
+            ui.radio_value(&mut self.profile, profile, profile.label());
+            ui.label(egui::RichText::new(profile.description()).small());
+        }
+        if let Some(settings) = self.profile.settings() {
+            ui.label(
+                egui::RichText::new(format!(
+                    "buffer {:.2} · throttle {:.2} · heartbeat {:.1}s",
+                    settings.buffer, settings.throttle, settings.heartbeat
+                ))
+                .small(),
+            );
+        }
+        if self.profile == Profile::LowLatency {
+            ui.label(
+                egui::RichText::new(
+                    "Low latency is not real-time and may affect game performance.",
+                )
+                .small(),
+            );
+        }
         ui.horizontal(|ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut self.dota_dir)
