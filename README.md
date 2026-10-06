@@ -147,8 +147,6 @@ State lives next to the app, shared with the `dct` CLI, so both can be
 used interchangeably. After installing, still add
 `-gamestateintegration` to the Steam launch options and restart the game.
 
-![Dota Collection Tool horizontal dashboard layout](docs/ui-connect-layout.svg)
-
 The desktop dashboard keeps the HTTP server, Dota connection, and export
 workflows visible side by side on wide windows. On narrow windows, the panels
 stack automatically so controls remain readable without horizontal overflow.
