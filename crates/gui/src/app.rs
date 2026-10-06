@@ -761,6 +761,37 @@ impl App {
             });
         self.export_msg.show(ui);
     }
+
+    fn logs_panel(&self, ui: &mut egui::Ui) {
+        let Some(health) = &self.health else {
+            ui.label("Start the collector to see HTTP logs.");
+            return;
+        };
+        let Ok(payload) = serde_json::from_str::<serde_json::Value>(health) else {
+            ui.label("Logs unavailable: health response is not valid JSON.");
+            return;
+        };
+        let Some(logs) = payload["logs"].as_array() else {
+            ui.label("No HTTP requests received yet.");
+            return;
+        };
+        if logs.is_empty() {
+            ui.label("No HTTP requests received yet.");
+            return;
+        }
+        for entry in logs.iter().rev().take(12) {
+            let timestamp = entry["timestamp"].as_i64().unwrap_or_default();
+            let event = entry["event"].as_str().unwrap_or("Unknown HTTP event");
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(format!("{timestamp}"))
+                        .weak()
+                        .monospace(),
+                );
+                ui.label(event);
+            });
+        }
+    }
 }
 
 fn show_health(ui: &mut egui::Ui, health: &str, profile: Profile) {
@@ -858,6 +889,7 @@ impl eframe::App for App {
                          shared with the dct command line.",
                     );
                 });
+                ui.collapsing("Logs", |ui| self.logs_panel(ui));
             });
         });
         if self.status_busy() || self.install_busy() || self.export_busy() || self.server_busy() {

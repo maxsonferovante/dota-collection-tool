@@ -5,10 +5,11 @@
 //! spills to the overflow file with a counter, and the game still gets its
 //! success response.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use axum::body::Bytes;
@@ -88,6 +89,26 @@ struct AppState {
     sender: mpsc::Sender<QueuedFrame>,
     metrics: Metrics,
     overflow_path: PathBuf,
+    recent_logs: Mutex<VecDeque<RecentLog>>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct RecentLog {
+    timestamp: i64,
+    event: String,
+}
+
+fn append_log(state: &AppState, timestamp: i64, event: impl Into<String>) {
+    let Ok(mut logs) = state.recent_logs.lock() else {
+        return;
+    };
+    logs.push_back(RecentLog {
+        timestamp,
+        event: event.into(),
+    });
+    while logs.len() > 30 {
+        logs.pop_front();
+    }
 }
 
 #[derive(Deserialize)]
@@ -121,14 +142,19 @@ async fn ingest(State(state): State<Arc<AppState>>, body: Bytes) -> Response {
         .last_received_at
         .store(received_at as u64, Ordering::Relaxed);
     match authorized(&body, &state.token) {
-        Some(true) => {}
+        Some(true) => append_log(&state, received_at, "HTTP payload accepted"),
         Some(false) => {
             state.metrics.rejected.fetch_add(1, Ordering::Relaxed);
+            append_log(&state, received_at, "HTTP payload rejected: invalid token");
             return StatusCode::UNAUTHORIZED.into_response();
         }
         // Malformed bodies still get success so the game keeps flowing;
         // the writer counts them as invalid and stores nothing.
-        None => {}
+        None => append_log(
+            &state,
+            received_at,
+            "HTTP payload received: invalid JSON envelope",
+        ),
     }
     let frame = QueuedFrame {
         raw: body.to_vec(),
@@ -143,6 +169,11 @@ async fn ingest(State(state): State<Arc<AppState>>, body: Bytes) -> Response {
             .into_response(),
         Err(_) => {
             state.metrics.dropped.fetch_add(1, Ordering::Relaxed);
+            append_log(
+                &state,
+                received_at,
+                "HTTP payload queued to overflow: queue full",
+            );
             if let Err(err) = dct_store::spill(&state.overflow_path, &body, received_at).await {
                 tracing::warn!(error = %err, "overflow spill failed");
             }
@@ -158,6 +189,11 @@ async fn ingest(State(state): State<Arc<AppState>>, body: Bytes) -> Response {
 
 async fn health(State(state): State<Arc<AppState>>) -> Response {
     let snapshot = state.metrics.snapshot();
+    let logs = state
+        .recent_logs
+        .lock()
+        .map(|logs| logs.iter().cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
     let body = serde_json::json!({
         "status": "ok",
         "received": snapshot.received,
@@ -167,6 +203,7 @@ async fn health(State(state): State<Arc<AppState>>) -> Response {
         "invalid": snapshot.invalid,
         "first_received_at": snapshot.first_received_at,
         "last_received_at": snapshot.last_received_at,
+        "logs": logs,
     })
     .to_string();
     (
@@ -268,6 +305,7 @@ pub async fn run_on(
         sender,
         metrics: Metrics::default(),
         overflow_path: config.overflow_path,
+        recent_logs: Mutex::new(VecDeque::new()),
     });
     tokio::spawn(writer_task(state.clone(), inbox));
     axum::serve(listener, router(state))
@@ -297,6 +335,7 @@ mod tests {
             sender,
             metrics: Metrics::default(),
             overflow_path: PathBuf::from("overflow.jsonl"),
+            recent_logs: Mutex::new(VecDeque::new()),
         });
         (state, inbox)
     }
