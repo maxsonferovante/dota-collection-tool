@@ -195,6 +195,15 @@ cargo llvm-cov --workspace --exclude dct-gui --fail-under-lines 90
 cargo run -- install --help
 ```
 
+## Acknowledgements
+
+This project was informed by and helped by the protocol and model analysis
+from [MrBean355/dota2-gsi](https://github.com/MrBean355/dota2-gsi/tree/main),
+especially when mapping the Dota 2 Game State Integration payloads and their
+playing/spectating data structures. The implementation in this repository is
+written independently in Rust and adds SQLite persistence for the received
+payloads and normalized game state.
+
 ## License
 
 MIT plus the Commons Clause v1.0 (see [`LICENSE`](LICENSE)): you may view,
