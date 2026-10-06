@@ -527,8 +527,8 @@ impl App {
     }
 
     fn status_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Servidor HTTP");
-        ui.label("Controle o coletor e acompanhe a saúde.");
+        ui.heading(egui::RichText::new("Servidor HTTP").size(17.0));
+        ui.label(egui::RichText::new("Controle o coletor e acompanhe a saúde.").size(12.0));
         ui.horizontal(|ui| {
             let (dot, label) = if self.server.is_some() || self.running {
                 (egui::Color32::DARK_GREEN, "Running")
@@ -544,9 +544,22 @@ impl App {
                 ui.spinner();
             }
         });
-        if let Some(health) = &self.health {
-            show_health(ui, health, self.profile);
-        }
+        egui::Frame::NONE
+            .fill(egui::Color32::from_rgb(36, 45, 61))
+            .corner_radius(egui::CornerRadius::same(9))
+            .inner_margin(egui::Margin::same(10))
+            .show(ui, |ui| {
+                if let Some(health) = &self.health {
+                    show_health(ui, health, self.profile);
+                } else {
+                    ui.label(
+                        egui::RichText::new("Waiting for first payload")
+                            .strong()
+                            .size(14.0),
+                    );
+                    ui.label(egui::RichText::new("0.0/s · no recent data").size(12.0));
+                }
+            });
         ui.horizontal_wrapped(|ui| {
             ui.label("Porta");
             ui.add(
@@ -584,30 +597,50 @@ impl App {
     }
 
     fn install_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Conectar Dota 2");
-        ui.label("Instale o GSI e reinicie o jogo.");
-        ui.label("Collection profile");
-        for profile in Profile::SELECTABLE {
-            ui.radio_value(&mut self.profile, profile, profile.label());
-            ui.label(egui::RichText::new(profile.description()).small());
-        }
-        if let Some(settings) = self.profile.settings() {
-            ui.label(
-                egui::RichText::new(format!(
-                    "buffer {:.2} · throttle {:.2} · heartbeat {:.1}s",
-                    settings.buffer, settings.throttle, settings.heartbeat
-                ))
-                .small(),
-            );
-        }
-        if self.profile == Profile::LowLatency {
-            ui.label(
-                egui::RichText::new(
-                    "Low latency is not real-time and may affect game performance.",
-                )
-                .small(),
-            );
-        }
+        ui.heading(egui::RichText::new("Conectar Dota 2").size(17.0));
+        ui.label(egui::RichText::new("Instale o GSI e reinicie o jogo.").size(12.0));
+        ui.label(egui::RichText::new("Collection profile").size(12.0));
+        let selected_profile = self.profile;
+        egui::Frame::NONE
+            .fill(egui::Color32::from_rgb(38, 59, 99))
+            .stroke(egui::Stroke::new(
+                1.0,
+                egui::Color32::from_rgb(79, 140, 255),
+            ))
+            .corner_radius(egui::CornerRadius::same(9))
+            .inner_margin(egui::Margin::same(10))
+            .show(ui, |ui| {
+                ui.label(
+                    egui::RichText::new(format!(
+                        "⚡ {}{}",
+                        selected_profile.label(),
+                        if selected_profile == Profile::Balanced {
+                            " · recomendada"
+                        } else {
+                            ""
+                        }
+                    ))
+                    .strong()
+                    .size(14.0),
+                );
+                ui.label(egui::RichText::new(selected_profile.description()).size(11.0));
+                if let Some(settings) = selected_profile.settings() {
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "buffer {:.2} · throttle {:.2} · heartbeat {:.1}s",
+                            settings.buffer, settings.throttle, settings.heartbeat
+                        ))
+                        .size(11.0),
+                    );
+                }
+            });
+        egui::ComboBox::from_id_salt("collection-profile")
+            .selected_text(self.profile.label())
+            .show_ui(ui, |ui| {
+                for profile in Profile::SELECTABLE {
+                    ui.selectable_value(&mut self.profile, profile, profile.label());
+                }
+            });
         ui.vertical(|ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut self.dota_dir)
@@ -657,8 +690,8 @@ impl App {
     }
 
     fn export_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Exportar dados");
-        ui.label("Salve frames e happenings em JSON.");
+        ui.heading(egui::RichText::new("Exportar dados").size(17.0));
+        ui.label(egui::RichText::new("Salve frames e happenings em JSON.").size(12.0));
         ui.vertical(|ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut self.export_dir)
@@ -714,6 +747,18 @@ impl App {
                 }
             });
         });
+        egui::Frame::NONE
+            .fill(egui::Color32::from_rgb(36, 45, 61))
+            .corner_radius(egui::CornerRadius::same(9))
+            .inner_margin(egui::Margin::same(10))
+            .show(ui, |ui| {
+                ui.label(
+                    egui::RichText::new("Pronto para exportar")
+                        .strong()
+                        .size(13.0),
+                );
+                ui.label(egui::RichText::new("Frames + happenings").size(11.0));
+            });
         self.export_msg.show(ui);
     }
 }
