@@ -6,7 +6,7 @@
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use dct_core::{Frame, Happening};
+use dct_core::{Frame, Happening, classify};
 use serde_json::Value;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::{Row, SqlitePool};
@@ -60,6 +60,8 @@ pub struct ExportedFrame {
     pub clock_time: i64,
     pub received_at: i64,
     pub payload: String,
+    pub payload_kind: String,
+    pub normalized_payload: String,
 }
 
 /// One happening for export, with the detail kept as the stored string.
@@ -142,15 +144,20 @@ impl Store {
             None => (String::new(), 0, 0),
         };
         let payload = std::str::from_utf8(raw).map_err(|err| StoreError::Write(err.to_string()))?;
+        let normalized_payload =
+            serde_json::to_string(frame).map_err(|err| StoreError::Write(err.to_string()))?;
         let id: i64 = sqlx::query(
-            "INSERT INTO frames (match_id, game_time, clock_time, received_at, payload)
-             VALUES (?, ?, ?, ?, ?) RETURNING id",
+            "INSERT INTO frames
+             (match_id, game_time, clock_time, received_at, payload, payload_kind, normalized_payload)
+             VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
         )
         .bind(match_id)
         .bind(game_time)
         .bind(clock_time)
         .bind(received_at)
         .bind(payload)
+        .bind(classify(frame).as_str())
+        .bind(normalized_payload)
         .fetch_one(&self.pool)
         .await
         .map_err(|err| StoreError::Write(err.to_string()))?
@@ -244,7 +251,8 @@ impl Store {
         match_id: Option<&str>,
     ) -> Result<Vec<ExportedFrame>, StoreError> {
         let mut sql = String::from(
-            "SELECT id, match_id, game_time, clock_time, received_at, payload FROM frames",
+            "SELECT id, match_id, game_time, clock_time, received_at, payload,
+                    payload_kind, normalized_payload FROM frames",
         );
         if match_id.is_some() {
             sql.push_str(" WHERE match_id = ?");
@@ -269,6 +277,8 @@ impl Store {
                     clock_time: row.get("clock_time"),
                     received_at: row.get("received_at"),
                     payload: row.get("payload"),
+                    payload_kind: row.get("payload_kind"),
+                    normalized_payload: row.get("normalized_payload"),
                 })
             })
             .collect()
