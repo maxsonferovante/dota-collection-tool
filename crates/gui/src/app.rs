@@ -799,20 +799,12 @@ impl eframe::App for App {
                             render(app, ui);
                         });
                     };
-                if ui.available_width() >= 1000.0 {
-                    ui.spacing_mut().item_spacing.x = 12.0;
-                    ui.columns(3, |columns| {
-                        panel(&mut columns[0], App::status_panel, self);
-                        panel(&mut columns[1], App::install_panel, self);
-                        panel(&mut columns[2], App::export_panel, self);
-                    });
-                } else {
-                    panel(ui, App::status_panel, self);
-                    ui.add_space(10.0);
-                    panel(ui, App::install_panel, self);
-                    ui.add_space(10.0);
-                    panel(ui, App::export_panel, self);
-                }
+                ui.spacing_mut().item_spacing.x = 12.0;
+                ui.columns(3, |columns| {
+                    panel(&mut columns[0], App::status_panel, self);
+                    panel(&mut columns[1], App::install_panel, self);
+                    panel(&mut columns[2], App::export_panel, self);
+                });
                 ui.add_space(8.0);
                 ui.collapsing("Details", |ui| {
                     ui.label(format!("Database: {}", self.db_location));
