@@ -787,7 +787,7 @@ impl eframe::App for App {
                             render(app, ui);
                         });
                     };
-                if ui.available_width() >= 900.0 {
+                if ui.available_width() >= 1000.0 {
                     ui.spacing_mut().item_spacing.x = 12.0;
                     ui.columns(3, |columns| {
                         panel(&mut columns[0], App::status_panel, self);
