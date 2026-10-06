@@ -66,12 +66,23 @@ fn escape(value: &str) -> String {
 /// Render the full config: endpoint, send-rate knobs, all data blocks on,
 /// plus the auth token.
 pub fn render(name: &str, uri: &str, token: &str) -> String {
+    render_profile(name, uri, token, Profile::Balanced)
+}
+
+/// Render a config using the selected collection profile.
+pub fn render_profile(name: &str, uri: &str, token: &str, profile: Profile) -> String {
+    let settings = profile
+        .settings()
+        .unwrap_or_else(|| Profile::Balanced.settings().unwrap());
     let mut out = format!("\"{} Integration Configuration\"\n{{\n", escape(name));
     out.push_str(&format!("    \"uri\"       \"{}\"\n", escape(uri)));
     out.push_str("    \"timeout\"   \"5.0\"\n");
-    out.push_str("    \"buffer\"    \"0.1\"\n");
-    out.push_str("    \"throttle\"  \"0.1\"\n");
-    out.push_str("    \"heartbeat\" \"30.0\"\n");
+    out.push_str(&format!("    \"buffer\"    \"{:.2}\"\n", settings.buffer));
+    out.push_str(&format!("    \"throttle\"  \"{:.2}\"\n", settings.throttle));
+    out.push_str(&format!(
+        "    \"heartbeat\" \"{:.1}\"\n",
+        settings.heartbeat
+    ));
     out.push_str("    \"data\"\n    {\n");
     for block in [
         "auth",
@@ -110,23 +121,33 @@ pub async fn install(dir: &Path, name: &str, content: &str, force: bool) -> Resu
         .await
         .with_context(|| format!("cannot create {}", dir.display()))?;
     let path = dir.join(format!("gamestate_integration_{name}.cfg"));
-    if tokio::fs::try_exists(&path)
+    let existed = tokio::fs::try_exists(&path)
         .await
-        .context("cannot probe existing config")?
-    {
-        if !force {
-            bail!(
-                "config already exists at {} (rerun with --force to back it up)",
-                path.display()
-            );
-        }
-        let backup = path.with_extension("cfg.bak");
-        tokio::fs::rename(&path, &backup)
-            .await
-            .with_context(|| format!("cannot back up to {}", backup.display()))?;
+        .context("cannot probe existing config")?;
+    if existed && !force {
+        bail!(
+            "config already exists at {} (rerun with --force to back it up)",
+            path.display()
+        );
     }
-    tokio::fs::write(&path, content)
+    let temp = path.with_extension("cfg.tmp");
+    tokio::fs::write(&temp, content)
         .await
-        .with_context(|| format!("cannot write {}", path.display()))?;
+        .with_context(|| format!("cannot write {}", temp.display()))?;
+    if existed {
+        let backup = path.with_extension("cfg.bak");
+        if let Err(err) = tokio::fs::rename(&path, &backup).await {
+            let _ = tokio::fs::remove_file(&temp).await;
+            return Err(err).with_context(|| format!("cannot back up to {}", backup.display()));
+        }
+        if let Err(err) = tokio::fs::rename(&temp, &path).await {
+            let _ = tokio::fs::rename(&backup, &path).await;
+            return Err(err).with_context(|| format!("cannot install {}", path.display()));
+        }
+    } else {
+        tokio::fs::rename(&temp, &path)
+            .await
+            .with_context(|| format!("cannot install {}", path.display()))?;
+    }
     Ok(path)
 }

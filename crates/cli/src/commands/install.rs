@@ -24,7 +24,8 @@ pub async fn run(args: &InstallArgs, port: u16, db_override: Option<PathBuf>) ->
     };
     let dir = steam::integration_dir(&root);
     let uri = format!("http://127.0.0.1:{port}/");
-    let content = cfg::render(&args.name, &uri, &token);
+    let profile = config::active_profile(&paths.config).await?;
+    let content = cfg::render_profile(&args.name, &uri, &token, profile);
     let written = cfg::install(&dir, &args.name, &content, args.force).await?;
     println!("wrote {}", written.display());
     println!(
