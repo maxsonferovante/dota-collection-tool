@@ -45,6 +45,65 @@ fn render_covers_all_blocks_and_escapes() {
 }
 
 #[test]
+fn render_uses_selected_profile_values() {
+    let raw = cfg::render_profile(
+        "dct",
+        "http://127.0.0.1:53000/",
+        "token",
+        cfg::Profile::LowLatency,
+    );
+    assert!(raw.contains("\"buffer\"    \"0.02\""));
+    assert!(raw.contains("\"throttle\"  \"0.05\""));
+    assert!(raw.contains("\"heartbeat\" \"15.0\""));
+}
+
+#[tokio::test]
+async fn failed_install_does_not_remove_existing_config() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let original = dir.path().join("gamestate_integration_dct.cfg");
+    std::fs::write(&original, "old config").expect("write original");
+
+    let result = cfg::install(dir.path(), "dct", "new config", false).await;
+    assert!(result.is_err());
+    assert_eq!(std::fs::read_to_string(&original).unwrap(), "old config");
+}
+
+#[test]
+fn profiles_have_conservative_settings() {
+    assert_eq!(cfg::Profile::Economical.settings().unwrap().buffer, 0.20);
+    assert_eq!(cfg::Profile::Economical.settings().unwrap().throttle, 0.20);
+    assert_eq!(cfg::Profile::Balanced.settings().unwrap().buffer, 0.10);
+    assert_eq!(cfg::Profile::Balanced.settings().unwrap().throttle, 0.10);
+    assert_eq!(cfg::Profile::LowLatency.settings().unwrap().buffer, 0.02);
+    assert_eq!(cfg::Profile::LowLatency.settings().unwrap().throttle, 0.05);
+    assert!(cfg::Profile::Custom.settings().is_none());
+}
+
+#[tokio::test]
+async fn profile_defaults_and_round_trips_without_losing_token() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config = dir.path().join("config.toml");
+
+    assert_eq!(
+        dct_cli::config::active_profile(&config).await.unwrap(),
+        cfg::Profile::Balanced
+    );
+    let token = dct_cli::config::fresh_token(&config).await.unwrap();
+    dct_cli::config::set_profile(&config, cfg::Profile::LowLatency)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        dct_cli::config::active_profile(&config).await.unwrap(),
+        cfg::Profile::LowLatency
+    );
+    assert_eq!(
+        dct_cli::config::active_token(&config).await.unwrap(),
+        Some(token)
+    );
+}
+
+#[test]
 fn library_paths_parse_old_and_new_manifests() {
     let old = "\"libraryfolders\"\n{\n\t\"0\"\n\t{\n\t\t\"path\"\t\t\"D:\\Steam\"\n\t}\n}\n";
     assert_eq!(steam::library_paths(old), vec![PathBuf::from("D:\\Steam")]);

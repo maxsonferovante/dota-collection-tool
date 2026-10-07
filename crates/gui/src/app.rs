@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 
+use dct_cli::cfg::Profile;
 use dct_cli::cli::{ExportArgs, InstallArgs};
 use dct_cli::commands::{export, install};
 use dct_cli::{config, lifecycle, paths, steam};
@@ -49,7 +50,7 @@ impl Message {
             return;
         }
         let (color, icon) = if self.ok {
-            (egui::Color32::from_rgb(20, 120, 65), "✓")
+            (egui::Color32::from_rgb(53, 183, 121), "✓")
         } else {
             (egui::Color32::from_rgb(180, 55, 45), "!")
         };
@@ -151,6 +152,7 @@ pub struct App {
     port_text: String,
     dota_dir: String,
     config_name: String,
+    profile: Profile,
     overwrite: bool,
     export_dir: String,
     export_match: String,
@@ -177,30 +179,30 @@ impl App {
         let mut visuals = egui::Visuals::dark();
         visuals.override_text_color = Some(egui::Color32::from_rgb(232, 236, 245));
         visuals.weak_text_color = Some(egui::Color32::from_rgb(156, 166, 184));
-        visuals.window_fill = egui::Color32::from_rgb(24, 29, 42);
+        visuals.window_fill = egui::Color32::from_rgb(18, 23, 34);
         visuals.panel_fill = egui::Color32::from_rgb(18, 23, 34);
         visuals.extreme_bg_color = egui::Color32::from_rgb(12, 16, 25);
         visuals.faint_bg_color = egui::Color32::from_rgb(31, 38, 54);
         visuals.code_bg_color = egui::Color32::from_rgb(12, 16, 25);
         visuals.selection.bg_fill = egui::Color32::from_rgb(48, 92, 150);
         visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(28, 35, 50);
-        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(35, 44, 62);
+        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(36, 45, 61);
         visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(48, 67, 94);
-        visuals.widgets.active.bg_fill = egui::Color32::from_rgb(42, 105, 145);
-        visuals.widgets.open.bg_fill = egui::Color32::from_rgb(42, 105, 145);
+        visuals.widgets.active.bg_fill = egui::Color32::from_rgb(79, 140, 255);
+        visuals.widgets.open.bg_fill = egui::Color32::from_rgb(79, 140, 255);
         ctx.egui_ctx.set_visuals(visuals);
         let mut style = (*ctx.egui_ctx.style()).clone();
-        style.spacing.item_spacing = egui::vec2(10.0, 9.0);
+        style.spacing.item_spacing = egui::vec2(8.0, 7.0);
         style.spacing.button_padding = egui::vec2(12.0, 7.0);
         style
             .text_styles
             .insert(egui::TextStyle::Heading, egui::FontId::proportional(24.0));
         style
             .text_styles
-            .insert(egui::TextStyle::Body, egui::FontId::proportional(16.0));
+            .insert(egui::TextStyle::Body, egui::FontId::proportional(13.0));
         style
             .text_styles
-            .insert(egui::TextStyle::Button, egui::FontId::proportional(16.0));
+            .insert(egui::TextStyle::Button, egui::FontId::proportional(13.0));
         style
             .text_styles
             .insert(egui::TextStyle::Monospace, egui::FontId::monospace(15.0));
@@ -211,11 +213,19 @@ impl App {
         let db_location = paths::resolve(None)
             .map(|resolved| resolved.db.display().to_string())
             .unwrap_or_else(|_| String::from("unknown"));
+        let profile = paths::resolve(None)
+            .map(|resolved| {
+                runtime
+                    .block_on(config::active_profile(&resolved.config))
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default();
         let mut app = Self {
             runtime,
             port_text: DEFAULT_PORT.to_owned(),
             dota_dir,
             config_name: String::from("dct"),
+            profile,
             overwrite: true,
             export_dir: default_export_dir(),
             export_match: String::new(),
@@ -460,12 +470,29 @@ impl App {
         };
         let (tx, rx) = mpsc::channel();
         self.install_rx = Some(rx);
+        let profile = self.profile;
         self.install_msg
             .set(String::from("Writing game config..."), true);
         self.runtime.spawn(async move {
-            let outcome = match install::run(&args, port, None).await {
-                Ok(written) => Ok(format!("Game config written to {}", written.display())),
-                Err(err) => Err(format!("install failed: {err:#}")),
+            let outcome = match paths::resolve(None)
+                .map_err(|err| anyhow::anyhow!("cannot resolve config path: {err:#}"))
+            {
+                Ok(resolved) => {
+                    match install::run_with_profile(&args, port, resolved.clone(), profile).await {
+                        Ok(written) => match config::set_profile(&resolved.config, profile).await {
+                            Ok(()) => Ok(format!(
+                                "{} profile installed to {}",
+                                profile.label(),
+                                written.display()
+                            )),
+                            Err(err) => Err(format!(
+                                "config installed but profile could not be saved: {err:#}"
+                            )),
+                        },
+                        Err(err) => Err(format!("install failed: {err:#}")),
+                    }
+                }
+                Err(err) => Err(format!("cannot resolve config path: {err:#}")),
             };
             let _ = tx.send(outcome);
         });
@@ -500,8 +527,8 @@ impl App {
     }
 
     fn status_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Collector service");
-        ui.label("Receive live game-state updates from Dota 2.");
+        ui.heading(egui::RichText::new("Servidor HTTP").size(17.0));
+        ui.label(egui::RichText::new("Controle o coletor e acompanhe a saúde.").size(12.0));
         ui.horizontal(|ui| {
             let (dot, label) = if self.server.is_some() || self.running {
                 (egui::Color32::DARK_GREEN, "Running")
@@ -517,24 +544,24 @@ impl App {
                 ui.spinner();
             }
         });
-        if let Some(health) = &self.health {
-            let one_line: String = health
-                .lines()
-                .next()
-                .unwrap_or("")
-                .chars()
-                .take(140)
-                .collect();
-            if !one_line.is_empty() {
-                ui.label(
-                    egui::RichText::new(format!("Health · {one_line}"))
-                        .small()
-                        .color(egui::Color32::from_rgb(156, 166, 184)),
-                );
-            }
-        }
-        ui.horizontal(|ui| {
-            ui.label("Port");
+        egui::Frame::NONE
+            .fill(egui::Color32::from_rgb(36, 45, 61))
+            .corner_radius(egui::CornerRadius::same(9))
+            .inner_margin(egui::Margin::same(10))
+            .show(ui, |ui| {
+                if let Some(health) = &self.health {
+                    show_health(ui, health, self.profile);
+                } else {
+                    ui.label(
+                        egui::RichText::new("Waiting for first payload")
+                            .strong()
+                            .size(14.0),
+                    );
+                    ui.label(egui::RichText::new("0.0/s · no recent data").size(12.0));
+                }
+            });
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Porta");
             ui.add(
                 egui::TextEdit::singleline(&mut self.port_text)
                     .desired_width(70.0)
@@ -554,7 +581,7 @@ impl App {
             if stop.clicked() {
                 self.stop_server();
             }
-            if ui.button("Refresh status").clicked() {
+            if ui.button("Refresh").clicked() {
                 self.refresh_status();
             }
         });
@@ -570,39 +597,85 @@ impl App {
     }
 
     fn install_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Connect Dota 2");
-        ui.label("Install the Game State Integration config into your Dota 2 folder.");
-        ui.horizontal(|ui| {
+        ui.heading(egui::RichText::new("Conectar Dota 2").size(17.0));
+        ui.label(egui::RichText::new("Instale o GSI e reinicie o jogo.").size(12.0));
+        ui.label(egui::RichText::new("Collection profile").size(12.0));
+        let selected_profile = self.profile;
+        egui::Frame::NONE
+            .fill(egui::Color32::from_rgb(38, 59, 99))
+            .stroke(egui::Stroke::new(
+                1.0,
+                egui::Color32::from_rgb(79, 140, 255),
+            ))
+            .corner_radius(egui::CornerRadius::same(9))
+            .inner_margin(egui::Margin::same(10))
+            .show(ui, |ui| {
+                ui.label(
+                    egui::RichText::new(format!(
+                        "⚡ {}{}",
+                        selected_profile.label(),
+                        if selected_profile == Profile::Balanced {
+                            " · recomendada"
+                        } else {
+                            ""
+                        }
+                    ))
+                    .strong()
+                    .size(14.0),
+                );
+                ui.label(egui::RichText::new(selected_profile.description()).size(11.0));
+                if let Some(settings) = selected_profile.settings() {
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "buffer {:.2} · throttle {:.2} · heartbeat {:.1}s",
+                            settings.buffer, settings.throttle, settings.heartbeat
+                        ))
+                        .size(11.0),
+                    );
+                }
+            });
+        egui::ComboBox::from_id_salt("collection-profile")
+            .selected_text(self.profile.label())
+            .show_ui(ui, |ui| {
+                for profile in Profile::SELECTABLE {
+                    ui.selectable_value(&mut self.profile, profile, profile.label());
+                }
+            });
+        ui.vertical(|ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut self.dota_dir)
-                    .desired_width(320.0)
+                    .desired_width(ui.available_width())
                     .hint_text("E:\\...\\dota 2 beta"),
             );
-            if ui.button("Browse...").clicked() {
-                if let Some(folder) = rfd::FileDialog::new()
-                    .set_title("Select the \"dota 2 beta\" folder")
-                    .pick_folder()
-                {
-                    self.dota_dir = folder.display().to_string();
-                }
-            }
-            if ui.button("Auto-detect").clicked() {
-                match steam::find_dota_root() {
-                    Some(root) => {
-                        self.dota_dir = root.display().to_string();
-                        self.install_msg
-                            .set(format!("Detected {}", self.dota_dir), true);
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("Browse...").clicked() {
+                    if let Some(folder) = rfd::FileDialog::new()
+                        .set_title("Select the \"dota 2 beta\" folder")
+                        .pick_folder()
+                    {
+                        self.dota_dir = folder.display().to_string();
                     }
-                    None => self.install_msg.set(
-                        String::from("Dota not found automatically; pick the folder manually."),
-                        false,
-                    ),
                 }
-            }
+                if ui.button("Auto-detect").clicked() {
+                    match steam::find_dota_root() {
+                        Some(root) => {
+                            self.dota_dir = root.display().to_string();
+                            self.install_msg
+                                .set(format!("Detected {}", self.dota_dir), true);
+                        }
+                        None => self.install_msg.set(
+                            String::from("Dota not found automatically; pick the folder manually."),
+                            false,
+                        ),
+                    }
+                }
+            });
         });
-        ui.horizontal(|ui| {
-            ui.label("Config name:");
-            ui.add(egui::TextEdit::singleline(&mut self.config_name).desired_width(90.0));
+        ui.vertical(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Config name:");
+                ui.add(egui::TextEdit::singleline(&mut self.config_name).desired_width(90.0));
+            });
             ui.checkbox(&mut self.overwrite, "Overwrite existing (backup as .bak)");
             let install = ui.add_enabled(!self.install_busy(), egui::Button::new("Install config"));
             if install.clicked() {
@@ -617,57 +690,143 @@ impl App {
     }
 
     fn export_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Export your data");
-        ui.label("Save raw frames and derived happenings as JSON files.");
-        ui.horizontal(|ui| {
+        ui.heading(egui::RichText::new("Exportar dados").size(17.0));
+        ui.label(egui::RichText::new("Salve frames e happenings em JSON.").size(12.0));
+        ui.vertical(|ui| {
             ui.add(
                 egui::TextEdit::singleline(&mut self.export_dir)
-                    .desired_width(320.0)
+                    .desired_width(ui.available_width())
                     .hint_text("Output folder"),
             );
-            if ui.button("Browse...").clicked() {
-                if let Some(folder) = rfd::FileDialog::new()
-                    .set_title("Choose where to save the export")
-                    .pick_folder()
-                {
-                    self.export_dir = folder.display().to_string();
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("Browse...").clicked() {
+                    if let Some(folder) = rfd::FileDialog::new()
+                        .set_title("Choose where to save the export")
+                        .pick_folder()
+                    {
+                        self.export_dir = folder.display().to_string();
+                    }
                 }
-            }
-            if ui.button("Default").clicked() {
-                self.export_dir = default_export_dir();
-            }
+                if ui.button("Default").clicked() {
+                    self.export_dir = default_export_dir();
+                }
+            });
         });
-        ui.horizontal(|ui| {
-            ui.label("Match:");
-            ui.add(
-                egui::TextEdit::singleline(&mut self.export_match)
-                    .desired_width(110.0)
-                    .hint_text("optional"),
-            );
-            ui.label("Kind:");
-            ui.add(
-                egui::TextEdit::singleline(&mut self.export_kind)
-                    .desired_width(110.0)
-                    .hint_text("e.g. kill"),
-            );
-            let run = ui.add_enabled(!self.export_busy(), egui::Button::new("Export data"));
-            if run.clicked() {
-                self.run_export();
-            }
-            if self.export_busy() {
-                ui.spinner();
-            }
-            if ui.button("Open folder").clicked() {
-                let target = if self.export_dir.trim().is_empty() {
-                    default_export_dir()
-                } else {
-                    self.export_dir.trim().to_owned()
-                };
-                open_folder(&target);
-            }
+        ui.vertical(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Match:");
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.export_match)
+                        .desired_width(110.0)
+                        .hint_text("optional"),
+                );
+            });
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Kind:");
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.export_kind)
+                        .desired_width(110.0)
+                        .hint_text("e.g. kill"),
+                );
+            });
+            ui.horizontal_wrapped(|ui| {
+                let run = ui.add_enabled(!self.export_busy(), egui::Button::new("Export JSON"));
+                if run.clicked() {
+                    self.run_export();
+                }
+                if self.export_busy() {
+                    ui.spinner();
+                }
+                if ui.button("Open folder").clicked() {
+                    let target = if self.export_dir.trim().is_empty() {
+                        default_export_dir()
+                    } else {
+                        self.export_dir.trim().to_owned()
+                    };
+                    open_folder(&target);
+                }
+            });
         });
+        egui::Frame::NONE
+            .fill(egui::Color32::from_rgb(36, 45, 61))
+            .corner_radius(egui::CornerRadius::same(9))
+            .inner_margin(egui::Margin::same(10))
+            .show(ui, |ui| {
+                ui.label(
+                    egui::RichText::new("Pronto para exportar")
+                        .strong()
+                        .size(13.0),
+                );
+                ui.label(egui::RichText::new("Frames + happenings").size(11.0));
+            });
         self.export_msg.show(ui);
     }
+
+    fn logs_panel(&self, ui: &mut egui::Ui) {
+        let Some(health) = &self.health else {
+            ui.label("Start the collector to see HTTP logs.");
+            return;
+        };
+        let Ok(payload) = serde_json::from_str::<serde_json::Value>(health) else {
+            ui.label("Logs unavailable: health response is not valid JSON.");
+            return;
+        };
+        let Some(logs) = payload["logs"].as_array() else {
+            ui.label("No HTTP requests received yet.");
+            return;
+        };
+        if logs.is_empty() {
+            ui.label("No HTTP requests received yet.");
+            return;
+        }
+        for entry in logs.iter().rev().take(12) {
+            let timestamp = entry["timestamp"].as_i64().unwrap_or_default();
+            let event = entry["event"].as_str().unwrap_or("Unknown HTTP event");
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(format!("{timestamp}"))
+                        .weak()
+                        .monospace(),
+                );
+                ui.label(event);
+            });
+        }
+    }
+}
+
+fn show_health(ui: &mut egui::Ui, health: &str, profile: Profile) {
+    let parsed: serde_json::Value = match serde_json::from_str(health) {
+        Ok(value) => value,
+        Err(_) => {
+            ui.label(egui::RichText::new(format!("Health · {health}")).small());
+            return;
+        }
+    };
+    let received = parsed["received"].as_u64().unwrap_or(0);
+    let dropped = parsed["dropped"].as_u64().unwrap_or(0);
+    let invalid = parsed["invalid"].as_u64().unwrap_or(0);
+    let rejected = parsed["rejected"].as_u64().unwrap_or(0);
+    let last = parsed["last_received_at"].as_u64().unwrap_or(0);
+    let now = dct_store::now_millis().max(0) as u64;
+    let stale_after = profile
+        .settings()
+        .map(|s| (s.heartbeat * 2_000.0) as u64)
+        .unwrap_or(60_000);
+    let state = if received == 0 {
+        "Waiting for first payload"
+    } else if now.saturating_sub(last) > stale_after {
+        "No recent data"
+    } else {
+        "Collecting"
+    };
+    let rate = parsed["first_received_at"]
+        .as_u64()
+        .filter(|first| now > *first)
+        .map(|first| received as f64 * 1000.0 / (now - first) as f64);
+    let rate_text = rate
+        .map(|value| format!("{value:.1}/s"))
+        .unwrap_or_else(|| "n/a".to_owned());
+    ui.label(egui::RichText::new(format!("{state} · {rate_text} · last payload {last} · dropped {dropped} · invalid {invalid} · rejected {rejected}" )).small().color(egui::Color32::from_rgb(156, 166, 184)));
 }
 
 impl eframe::App for App {
@@ -685,10 +844,10 @@ impl eframe::App for App {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
-                    ui.heading(egui::RichText::new("Dota Collection Tool").size(28.0));
+                    ui.heading(egui::RichText::new("Dota Collection Tool").size(24.0));
                     ui.add_space(8.0);
                     let (color, label) = if self.server.is_some() || self.running {
-                        (egui::Color32::from_rgb(20, 120, 65), "COLLECTING")
+                        (egui::Color32::from_rgb(53, 183, 121), "COLLECTING")
                     } else {
                         (egui::Color32::from_gray(110), "READY")
                     };
@@ -702,17 +861,26 @@ impl eframe::App for App {
                 );
                 ui.add_space(14.0);
 
-                egui::Frame::group(ui.style())
-                    .inner_margin(egui::Margin::same(16))
-                    .show(ui, |ui| self.status_panel(ui));
-                ui.add_space(10.0);
-                egui::Frame::group(ui.style())
-                    .inner_margin(egui::Margin::same(16))
-                    .show(ui, |ui| self.install_panel(ui));
-                ui.add_space(10.0);
-                egui::Frame::group(ui.style())
-                    .inner_margin(egui::Margin::same(16))
-                    .show(ui, |ui| self.export_panel(ui));
+                let panel =
+                    |ui: &mut egui::Ui, render: fn(&mut App, &mut egui::Ui), app: &mut App| {
+                        egui::Frame {
+                            fill: egui::Color32::from_rgb(27, 34, 48),
+                            stroke: egui::Stroke::new(1.0, egui::Color32::from_rgb(52, 65, 85)),
+                            corner_radius: egui::CornerRadius::same(12),
+                            inner_margin: egui::Margin::same(15),
+                            ..egui::Frame::NONE
+                        }
+                        .show(ui, |ui| {
+                            ui.set_min_height(280.0);
+                            render(app, ui);
+                        });
+                    };
+                ui.spacing_mut().item_spacing.x = 12.0;
+                ui.columns(3, |columns| {
+                    panel(&mut columns[0], App::status_panel, self);
+                    panel(&mut columns[1], App::install_panel, self);
+                    panel(&mut columns[2], App::export_panel, self);
+                });
                 ui.add_space(8.0);
                 ui.collapsing("Details", |ui| {
                     ui.label(format!("Database: {}", self.db_location));
@@ -721,6 +889,7 @@ impl eframe::App for App {
                          shared with the dct command line.",
                     );
                 });
+                ui.collapsing("Logs", |ui| self.logs_panel(ui));
             });
         });
         if self.status_busy() || self.install_busy() || self.export_busy() || self.server_busy() {
